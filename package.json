@@ -1,0 +1,30 @@
+{
+  "name": "accessibility-tests",
+  "version": "1.0.0",
+  "description": "Automated accessibility testing based on Deque University checklists for client reports",
+  "type": "module",
+  "scripts": {
+    "test": "node run-tests.js",
+    "test:report": "node run-tests.js --report",
+    "report": "node generate-report.js",
+    "start": "node server.js"
+  },
+  "keywords": [
+    "accessibility",
+    "a11y",
+    "wcag",
+    "deque"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@axe-core/playwright": "^4.10.2",
+    "express": "^4.21.0",
+    "multer": "^1.4.5-lts.1",
+    "playwright": "^1.49.0",
+    "uuid": "^10.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0"
+  }
+}
