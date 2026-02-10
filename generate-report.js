@@ -6,6 +6,13 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import {
+  getRemediation,
+  wcagScUrl,
+  fixOrderScore,
+  IMPACT_ORDER,
+  EFFORT_ORDER,
+} from './remediation-data.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DEFAULT_OUTPUT_DIR = join(__dirname, 'reports');
@@ -127,6 +134,77 @@ export function generateReport(reportData, options = {}) {
     reportData = JSON.parse(readFileSync(resultsFile, 'utf8'));
   }
 
+  const prevFile = join(outputDir, 'accessibility-results-previous.json');
+  let prevData = null;
+  if (existsSync(prevFile)) {
+    try {
+      prevData = JSON.parse(readFileSync(prevFile, 'utf8'));
+    } catch (_) {}
+  }
+
+  function issueKey(r, url) {
+    return `${url || ''}|${r.id || r.ruleId}|${r.rule || r.help || ''}`;
+  }
+  const prevCustomMap = new Map();
+  const prevViolationMap = new Map();
+  if (prevData) {
+    (prevData.customResults || []).forEach((r) => prevCustomMap.set(issueKey(r, r.url), r));
+    Object.entries(prevData.axeResults || {}).forEach(([u, data]) => {
+      (data.violations || []).forEach((v) => prevViolationMap.set(`${u}|${v.id}|${v.help}`, v));
+    });
+  }
+  const currCustomMap = new Map();
+  const currViolationMap = new Map();
+  (reportData.customResults || []).forEach((r) => currCustomMap.set(issueKey(r, r.url), r));
+  Object.entries(reportData.axeResults || {}).forEach(([u, data]) => {
+    (data.violations || []).forEach((v) => currViolationMap.set(`${u}|${v.id}|${v.help}`, v));
+  });
+  const improved = [];
+  const regressed = [];
+  prevCustomMap.forEach((prev, k) => {
+    const curr = currCustomMap.get(k);
+    if (!curr) return;
+    const pFail = prev.status === 'fail' || prev.status === 'warn';
+    const cFail = curr.status === 'fail' || curr.status === 'warn';
+    if (pFail && !cFail) improved.push({ type: 'custom', ...curr });
+    if (!pFail && cFail) regressed.push({ type: 'custom', ...curr });
+  });
+  prevViolationMap.forEach((_, k) => {
+    if (!currViolationMap.has(k)) improved.push({ type: 'violation', key: k });
+  });
+  currViolationMap.forEach((v, k) => {
+    if (!prevViolationMap.has(k)) regressed.push({ type: 'violation', key: k, ...v });
+  });
+
+  const fixOrderItems = [];
+  (reportData.customResults || []).forEach((r) => {
+    if (r.status === 'fail' || r.status === 'warn') {
+      const rem = getRemediation(r.id, null);
+      fixOrderItems.push({
+        type: 'custom',
+        rule: r.rule,
+        id: r.id,
+        url: r.url,
+        status: r.status,
+        ...rem,
+      });
+    }
+  });
+  Object.entries(reportData.axeResults || {}).forEach(([url, data]) => {
+    (data.violations || []).forEach((v) => {
+      const rem = getRemediation(null, v.id);
+      fixOrderItems.push({
+        type: 'violation',
+        rule: v.help,
+        id: v.id,
+        url,
+        status: 'violation',
+        ...rem,
+      });
+    });
+  });
+  fixOrderItems.sort((a, b) => fixOrderScore(a) - fixOrderScore(b));
+
   const customByChapter = {};
   Object.keys(CHECKLIST_CHAPTERS).forEach((ch) => {
     customByChapter[ch] = reportData.customResults?.filter((r) => r.chapter === ch) || [];
@@ -245,14 +323,41 @@ export function generateReport(reportData, options = {}) {
     .url-section.has-visible { display: block; }
     section h2:not(.has-visible) { display: none; }
     section h2.has-visible { display: block; }
+    .remediation { margin-top: 8px; font-size: 0.85rem; }
+    .remediation pre { margin: 8px 0; padding: 10px; background: #1e1e1e; color: #d4d4d4; border-radius: 6px; overflow-x: auto; white-space: pre-wrap; }
+    .remediation-btns { display: flex; gap: 8px; margin-top: 6px; }
+    .remediation-btns button, .btn-show-fix, .btn-copy-fix { padding: 6px 12px; font-size: 0.8rem; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); cursor: pointer; }
+    .remediation-btns button:hover { background: var(--bg); }
+    .wcag-links { font-size: 0.8rem; margin-top: 4px; }
+    .wcag-links a { color: var(--accent); }
+    .impact-effort { display: flex; gap: 6px; margin-top: 4px; flex-wrap: wrap; }
+    .impact-effort .badge { font-size: 0.7rem; }
+    .fix-order-list { margin: 0; padding-left: 20px; }
+    .fix-order-list li { margin-bottom: 8px; }
+    .report-meta { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
+    .report-meta .timestamp { font-size: 0.9rem; color: var(--text-muted); }
+    .btn-pdf { padding: 8px 16px; background: var(--accent); color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 0.9rem; }
+    .btn-pdf:hover { filter: brightness(1.05); }
+    .comparison-section { padding: 16px 32px; background: var(--bg); border-bottom: 1px solid var(--border); }
+    .comparison-section h3 { margin: 0 0 12px; font-size: 1rem; }
+    .comparison-section .improved { color: var(--pass); }
+    .comparison-section .regressed { color: var(--fail); }
+    .suggested-fixes { padding: 20px 32px; background: #f0f7f4; border-top: 1px solid var(--border); }
+    .suggested-fixes h3 { margin: 0 0 12px; font-size: 1rem; }
+    @media print { .sticky-bar { position: static; } .filter-row, .disability-stats, .btn-pdf, .remediation-btns, .summary-item.filter-btn { display: none !important; } }
   </style>
 </head>
 <body>
   <div class="container">
     <header>
-      <div class="brand">Us</div>
-      <h1>Accessibility audit report</h1>
-      <p>Deque University checklists · Generated ${new Date(reportData.generatedAt).toLocaleString()}</p>
+      <div class="report-meta">
+        <div>
+          <div class="brand">Us</div>
+          <h1>Accessibility audit report</h1>
+          <p class="timestamp">Deque University checklists · Generated ${new Date(reportData.generatedAt).toLocaleString()}</p>
+        </div>
+        <button type="button" class="btn-pdf" onclick="window.print()" aria-label="Download as PDF">Download PDF</button>
+      </div>
     </header>
 
     <div class="score-hero" aria-label="Overall accessibility score">
@@ -301,6 +406,13 @@ export function generateReport(reportData, options = {}) {
     </div>
     ` : ''}
 
+    ${prevData ? `
+    <div class="comparison-section">
+      <h3>Compared to previous run (${new Date(prevData.generatedAt).toLocaleString()})</h3>
+      <p><span class="improved">Improved: ${improved.length}</span> · <span class="regressed">Regressed: ${regressed.length}</span></p>
+    </div>
+    ` : ''}
+
     <section>
 `;
 
@@ -322,26 +434,49 @@ export function generateReport(reportData, options = {}) {
             const ids = DISABILITY_MAP[r.id];
             return ids ? ids.join(', ') : '—';
           };
-          html += '<table><thead><tr><th>Rule</th><th>Status</th><th>Disability</th><th>Message</th></tr></thead><tbody>';
-          custom.forEach((r) => {
+          html += '<table><thead><tr><th>Rule</th><th>Status</th><th>Impact</th><th>Effort</th><th>Disability</th><th>Message</th><th>Fix</th></tr></thead><tbody>';
+          custom.forEach((r, idx) => {
             const filterVal = r.status === 'pass' ? 'pass' : r.status === 'warn' ? 'warn' : 'fail';
             const disabilities = (DISABILITY_MAP[r.id] || ['Various']).join('|');
+            const rem = getRemediation(r.id, null);
+            const wcagLinks = (rem.wcag || []).map((sc) => `<a href="${wcagScUrl(sc)}" target="_blank" rel="noopener">${sc}</a>`).join(', ');
+            const snippetEsc = escapeHtml(rem.snippet || '');
+            const rowId = `fix-row-${chapterId}-${url.replace(/[^a-z0-9]/gi, '')}-${idx}`;
             html += `<tr class="filterable" data-filter="${filterVal}" data-disability="${escapeHtml(disabilities)}">
               <td>${escapeHtml(r.rule)}</td>
               <td><span class="badge ${r.status}">${r.status}</span></td>
+              <td><span class="badge impact-effort-badge">${rem.impact || '—'}</span></td>
+              <td>${rem.effort || '—'}</td>
               <td>${escapeHtml(disabilityLabel(r))}</td>
               <td>${escapeHtml(r.message)}</td>
+              <td>
+                <button type="button" class="btn-show-fix" data-target="${rowId}" aria-expanded="false">Show fix</button>
+                <button type="button" class="btn-copy-fix" data-snippet="${snippetEsc}" title="Copy fix">Copy fix</button>
+                <div id="${rowId}" class="remediation" hidden>
+                  ${wcagLinks ? `<div class="wcag-links">WCAG: ${wcagLinks}</div>` : ''}
+                  <pre>${snippetEsc}</pre>
+                </div>
+              </td>
             </tr>`;
           });
           html += '</tbody></table>';
         }
 
-        axeViolations.forEach((v) => {
+        axeViolations.forEach((v, vIdx) => {
+          const rem = getRemediation(null, v.id);
+          const wcagLinks = (rem.wcag || []).map((sc) => `<a href="${wcagScUrl(sc)}" target="_blank" rel="noopener">${sc}</a>`).join(', ');
+          const snippetEsc = escapeHtml(rem.snippet || '');
+          const fixId = `fix-axe-${chapterId}-${url.replace(/[^a-z0-9]/gi, '')}-${vIdx}`;
           html += `
           <div class="violation filterable" data-filter="violation" data-disability="Various">
             <strong>${escapeHtml(v.id)}: ${escapeHtml(v.help)}</strong>
+            <span class="badge impact-effort-badge">${rem.impact || '—'}</span> ${rem.effort || ''}
+            ${wcagLinks ? `<div class="wcag-links">WCAG: ${wcagLinks}</div>` : ''}
             ${v.description ? `<p>${escapeHtml(v.description)}</p>` : ''}
             ${v.nodes?.length ? `<p><strong>Affected:</strong> ${v.nodes.length} element(s)</p>` : ''}
+            <button type="button" class="btn-show-fix" data-target="${fixId}" aria-expanded="false">Show fix</button>
+            <button type="button" class="btn-copy-fix" data-snippet="${snippetEsc}" title="Copy fix">Copy fix</button>
+            <div id="${fixId}" class="remediation" hidden><pre>${snippetEsc}</pre></div>
           </div>`;
         });
 
@@ -389,12 +524,46 @@ export function generateReport(reportData, options = {}) {
       <p class="todo-progress" id="todo-progress" aria-live="polite"></p>
     </div>
 
+    ${fixOrderItems.length > 0 ? `
+    <div class="suggested-fixes" id="suggested-fixes">
+      <h3>Suggested fix order (by impact and effort)</h3>
+      <p style="font-size:0.9rem; color:var(--text-muted); margin:0 0 12px;">Prioritize high-impact, simple fixes first.</p>
+      <ol class="fix-order-list" start="1">
+        ${fixOrderItems.map((item, i) => {
+          const wcagStr = (item.wcag || []).map((sc) => `<a href="${wcagScUrl(sc)}" target="_blank" rel="noopener">${sc}</a>`).join(', ');
+          return `<li><strong>${escapeHtml(item.rule)}</strong> ${item.url ? `(${escapeHtml(item.url)})` : ''} — Impact: ${item.impact}, Effort: ${item.effort}${wcagStr ? ` — WCAG: ${wcagStr}` : ''}</li>`;
+        }).join('')}
+      </ol>
+    </div>
+    ` : ''}
+
     <footer>
       <p>Us · Accessibility audit. Report generated by an automated suite based on Deque University checklists. Some checks require manual verification.</p>
     </footer>
   </div>
   <script>
     (function() {
+      document.querySelectorAll('.btn-show-fix').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          var target = document.getElementById(this.getAttribute('data-target'));
+          if (!target) return;
+          var visible = !target.hidden;
+          target.hidden = visible;
+          this.textContent = visible ? 'Show fix' : 'Hide fix';
+          this.setAttribute('aria-expanded', !visible);
+        });
+      });
+      document.querySelectorAll('.btn-copy-fix').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          var snippet = this.getAttribute('data-snippet') || '';
+          snippet = snippet.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&amp;/g, '&');
+          navigator.clipboard.writeText(snippet).then(function() {
+            btn.textContent = 'Copied!';
+            setTimeout(function() { btn.textContent = 'Copy fix'; }, 1500);
+          }).catch(function() {});
+        });
+      });
+
       var buttons = document.querySelectorAll('.summary-item.filter-btn');
       var filterables = document.querySelectorAll('.filterable');
       var urlSections = document.querySelectorAll('.url-section');

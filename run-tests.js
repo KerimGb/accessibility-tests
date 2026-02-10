@@ -16,7 +16,7 @@ import { runMultimediaChecks } from './tests/chapter5-multimedia.js';
 import { runInputMethodChecks } from './tests/chapter6-input-methods.js';
 import { runFormChecks } from './tests/chapter7-forms.js';
 import { runDynamicChecks } from './tests/chapter8-dynamic.js';
-import { writeFileSync, mkdirSync, existsSync } from 'fs';
+import { writeFileSync, readFileSync, mkdirSync, existsSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
@@ -209,6 +209,13 @@ async function main() {
     await browser.close();
   }
 
+  const prevFile = join(OUTPUT_DIR, 'accessibility-results-previous.json');
+  if (existsSync(RESULTS_FILE)) {
+    try {
+      const current = readFileSync(RESULTS_FILE, 'utf8');
+      writeFileSync(prevFile, current, 'utf8');
+    } catch (_) {}
+  }
   writeFileSync(RESULTS_FILE, JSON.stringify(report, null, 2), 'utf8');
   console.log(`\nResults saved to ${RESULTS_FILE}`);
 
