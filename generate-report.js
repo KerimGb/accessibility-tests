@@ -58,38 +58,44 @@ const DISABILITY_MAP = {
   'page-load': ['Various'],
 };
 
-const MANUAL_VERIFICATION_CHECKS = [
-  'Page title is unique and describes the page or result of the user action.',
-  'Link purpose can be determined from the link text alone (no "click here").',
-  'Alternative text is meaningful and concise, not just present.',
-  'Color contrast meets 4.5:1 for normal text, 3:1 for large text and UI.',
-  'Information is not conveyed by color alone.',
-  'Focus order is logical and matches visual order; no positive tabindex.',
-  'All interactive elements are keyboard accessible and have visible focus.',
-  'Touch targets are at least 44×44px with spacing between them.',
-  'Form error messages are associated with fields and announced to screen readers.',
-  'Dynamic content changes are announced (e.g. aria-live) where appropriate.',
-  'No content flashes more than 3 times per second (seizure risk).',
-  'Video has captions and, if needed, audio description; audio has transcript.',
-  'Motion/animation can be paused or disabled (e.g. prefers-reduced-motion).',
+const ALL_DISABILITIES = [
+  'Blindness', 'Low Vision', 'Colorblindness', 'Deafness and Hard-of-Hearing',
+  'Deafblindness', 'Dexterity/Motor Disabilities', 'Speech Disabilities',
+  'Cognitive Disabilities', 'Reading Disabilities', 'Seizure Disorders', 'Various',
 ];
 
-const ASSISTIVE_TECH_CHECKS = [
-  'Screen reader (NVDA, JAWS, or VoiceOver): Navigate by headings and landmarks; all content reachable.',
-  'Screen reader: Form fields have announced labels and errors; buttons/links have clear names.',
-  'Screen reader: No unexpected context changes on focus; dynamic updates are announced.',
-  'Keyboard only: Tab through every interactive element; no keyboard traps.',
-  'Keyboard only: Focus order matches visual order; focus is always visible.',
-  'Keyboard only: All actions (menus, modals, carousels) work with keyboard alone.',
-  'Zoom: At 200% zoom, content reflows; no horizontal scrolling; text still readable.',
-  'Zoom: No content clipped or overlapping at 200%.',
-  'Reduce motion: Animations respect prefers-reduced-motion or can be paused.',
-  'Mobile/touch: All features work with touch; targets are large enough; no gesture-only actions.',
+const MANUAL_VERIFICATION_ITEMS = [
+  { text: 'Page title is unique and describes the page or result of the user action.', disabilities: ['Blindness', 'Low Vision', 'Reading Disabilities', 'Cognitive Disabilities'] },
+  { text: 'Link purpose can be determined from the link text alone (no "click here").', disabilities: ['Blindness', 'Low Vision', 'Reading Disabilities', 'Cognitive Disabilities'] },
+  { text: 'Alternative text is meaningful and concise, not just present.', disabilities: ['Blindness', 'Low Vision', 'Deafblindness'] },
+  { text: 'Color contrast meets 4.5:1 for normal text, 3:1 for large text and UI.', disabilities: ['Low Vision', 'Colorblindness'] },
+  { text: 'Information is not conveyed by color alone.', disabilities: ['Colorblindness', 'Low Vision'] },
+  { text: 'Focus order is logical and matches visual order; no positive tabindex.', disabilities: ['Blindness', 'Dexterity/Motor Disabilities'] },
+  { text: 'All interactive elements are keyboard accessible and have visible focus.', disabilities: ['Blindness', 'Dexterity/Motor Disabilities', 'Low Vision'] },
+  { text: 'Touch targets are at least 44×44px with spacing between them.', disabilities: ['Dexterity/Motor Disabilities', 'Low Vision'] },
+  { text: 'Form error messages are associated with fields and announced to screen readers.', disabilities: ['Blindness', 'Cognitive Disabilities', 'Reading Disabilities'] },
+  { text: 'Dynamic content changes are announced (e.g. aria-live) where appropriate.', disabilities: ['Blindness', 'Cognitive Disabilities'] },
+  { text: 'No content flashes more than 3 times per second (seizure risk).', disabilities: ['Seizure Disorders'] },
+  { text: 'Video has captions and, if needed, audio description; audio has transcript.', disabilities: ['Deafness and Hard-of-Hearing', 'Deafblindness'] },
+  { text: 'Motion/animation can be paused or disabled (e.g. prefers-reduced-motion).', disabilities: ['Cognitive Disabilities'] },
+];
+
+const ASSISTIVE_TECH_ITEMS = [
+  { text: 'Screen reader (NVDA, JAWS, or VoiceOver): Navigate by headings and landmarks; all content reachable.', disabilities: ['Blindness', 'Low Vision'] },
+  { text: 'Screen reader: Form fields have announced labels and errors; buttons/links have clear names.', disabilities: ['Blindness', 'Low Vision'] },
+  { text: 'Screen reader: No unexpected context changes on focus; dynamic updates are announced.', disabilities: ['Blindness', 'Cognitive Disabilities'] },
+  { text: 'Keyboard only: Tab through every interactive element; no keyboard traps.', disabilities: ['Blindness', 'Dexterity/Motor Disabilities'] },
+  { text: 'Keyboard only: Focus order matches visual order; focus is always visible.', disabilities: ['Blindness', 'Dexterity/Motor Disabilities', 'Low Vision'] },
+  { text: 'Keyboard only: All actions (menus, modals, carousels) work with keyboard alone.', disabilities: ['Blindness', 'Dexterity/Motor Disabilities'] },
+  { text: 'Zoom: At 200% zoom, content reflows; no horizontal scrolling; text still readable.', disabilities: ['Low Vision'] },
+  { text: 'Zoom: No content clipped or overlapping at 200%.', disabilities: ['Low Vision'] },
+  { text: 'Reduce motion: Animations respect prefers-reduced-motion or can be paused.', disabilities: ['Cognitive Disabilities'] },
+  { text: 'Mobile/touch: All features work with touch; targets are large enough; no gesture-only actions.', disabilities: ['Dexterity/Motor Disabilities', 'Low Vision'] },
 ];
 
 const MANUAL_TODO_ITEMS = [
-  { label: 'Manual verification', items: MANUAL_VERIFICATION_CHECKS },
-  { label: 'Assistive technology & manual testing', items: ASSISTIVE_TECH_CHECKS },
+  { label: 'Manual verification', items: MANUAL_VERIFICATION_ITEMS },
+  { label: 'Assistive technology & manual testing', items: ASSISTIVE_TECH_ITEMS },
 ];
 
 function statusColor(s) {
@@ -140,6 +146,19 @@ export function generateReport(reportData, options = {}) {
   const score = total === 0 ? 100 : Math.round((pass / total) * 100);
   const scoreClamp = Math.max(0, Math.min(100, score));
 
+  const disabilityStats = {};
+  ALL_DISABILITIES.forEach((d) => { disabilityStats[d] = 0; });
+  (reportData.customResults || []).forEach((r) => {
+    (DISABILITY_MAP[r.id] || ['Various']).forEach((d) => { if (disabilityStats[d] !== undefined) disabilityStats[d]++; });
+  });
+  [...MANUAL_VERIFICATION_ITEMS, ...ASSISTIVE_TECH_ITEMS].forEach((item) => {
+    (item.disabilities || []).forEach((d) => { if (disabilityStats[d] !== undefined) disabilityStats[d]++; });
+  });
+  Object.values(reportData.axeResults || {}).forEach((data) => {
+    const count = (data.violations?.length || 0) * Math.max(1, reportData.urls?.length || 1);
+    disabilityStats['Various'] = (disabilityStats['Various'] || 0) + count;
+  });
+
   let html = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -168,9 +187,17 @@ export function generateReport(reportData, options = {}) {
     .summary-item.filter-btn { cursor: pointer; transition: transform .15s, box-shadow .15s; border: none; font: inherit; text-align: left; }
     .summary-item.filter-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,.08); }
     .summary-item.filter-btn.active { box-shadow: 0 0 0 2px var(--text); }
-    nav { padding: 16px 32px; border-bottom: 1px solid var(--border); background: var(--surface); }
-    nav a { margin-right: 20px; color: var(--accent); text-decoration: none; font-weight: 500; font-size: 0.9rem; }
-    nav a:hover { text-decoration: underline; }
+    .sticky-bar { position: sticky; top: 0; z-index: 100; background: var(--surface); border-bottom: 1px solid var(--border); transition: padding .2s, box-shadow .2s; }
+    .sticky-bar.scrolled { padding-top: 8px; padding-bottom: 8px; box-shadow: 0 2px 8px rgba(0,0,0,.06); }
+    .sticky-bar.scrolled .summary { padding: 10px 20px; }
+    .sticky-bar.scrolled .summary-item { padding: 8px 14px; }
+    .sticky-bar.scrolled .summary-item span { font-size: 1.2rem; }
+    .sticky-bar.scrolled .filter-row { padding: 10px 20px; }
+    .filter-row { display: flex; gap: 12px; align-items: center; padding: 14px 32px; background: var(--bg); border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+    .filter-row select { padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 0.9rem; font-family: inherit; min-width: 140px; }
+    .filter-row label { font-size: 0.85rem; color: var(--text-muted); }
+    .disability-stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; padding: 12px 32px; font-size: 0.8rem; color: var(--text-muted); }
+    .disability-stats .stat { padding: 6px 10px; background: var(--bg); border-radius: 6px; }
     .alert { padding: 18px 32px; margin: 0; border-radius: 0; }
     .alert-warning { background: #fff3e0; border-left: 4px solid var(--warn); }
     .alert-error { background: #ffebee; border-left: 4px solid var(--fail); }
@@ -198,14 +225,20 @@ export function generateReport(reportData, options = {}) {
     .score-label { font-size: 0.9rem; color: var(--text-muted); margin-top: 6px; }
     .manual-section { padding: 28px 32px; background: var(--bg); border-top: 1px solid var(--border); }
     .manual-section h2 { font-size: 1.1rem; font-weight: 700; margin: 0 0 14px; }
-    .manual-section .todo-group { margin-bottom: 24px; }
-    .manual-section .todo-group:last-child { margin-bottom: 0; }
-    .manual-section .todo-group-title { font-size: 0.95rem; font-weight: 600; margin: 0 0 10px; color: var(--text); }
-    .manual-section .todo-list { list-style: none; margin: 0; padding: 0; }
-    .manual-section .todo-item { margin-bottom: 10px; display: flex; align-items: flex-start; gap: 10px; font-size: 0.9rem; line-height: 1.5; color: var(--text); }
-    .manual-section .todo-item input[type="checkbox"] { margin-top: 3px; flex-shrink: 0; width: 18px; height: 18px; cursor: pointer; }
-    .manual-section .todo-item label { cursor: pointer; flex: 1; }
-    .manual-section .todo-item input:checked + label { text-decoration: line-through; color: var(--text-muted); }
+    .manual-section .todo-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    .manual-section .todo-table th, .manual-section .todo-table td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); vertical-align: top; }
+    .manual-section .todo-table th { background: var(--bg); font-weight: 600; }
+    .manual-section .todo-table td:first-child { width: 36px; }
+    .manual-section .todo-table input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; }
+    .manual-section .todo-table tr:has(input:checked) .todo-action { text-decoration: line-through; color: var(--text-muted); }
+    .manual-section .todo-table td.disabilities { font-size: 0.85rem; color: var(--text-muted); }
+    @media (max-width: 600px) { .manual-section .todo-table, .manual-section .todo-table thead, .manual-section .todo-table tbody, .manual-section .todo-table tr, .manual-section .todo-table td { display: block; }
+      .manual-section .todo-table thead { display: none; }
+      .manual-section .todo-table tr { margin-bottom: 12px; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+      .manual-section .todo-table td { border: none; }
+      .manual-section .todo-table td::before { content: attr(data-label); font-weight: 600; display: block; margin-bottom: 4px; }
+      .manual-section .todo-table td:first-child { display: inline-block; margin-right: 12px; }
+    }
     .manual-section .todo-progress { font-size: 0.85rem; color: var(--text-muted); margin-top: 16px; }
     .filterable.hidden { display: none !important; }
     .url-section:not(.has-visible) { display: none; }
@@ -227,12 +260,31 @@ export function generateReport(reportData, options = {}) {
       <div class="score-label">out of 100</div>
     </div>
 
-    <div class="summary" role="group" aria-label="Filter results">
-      <button type="button" class="summary-item filter-btn active" data-filter="all" aria-pressed="true"><span>${total}</span><small>All</small></button>
-      <button type="button" class="summary-item pass filter-btn" data-filter="pass" aria-pressed="false"><span>${reportData.summary?.pass || 0}</span><small>Passed</small></button>
-      <button type="button" class="summary-item warn filter-btn" data-filter="warn" aria-pressed="false"><span>${reportData.summary?.warn || 0}</span><small>Warnings</small></button>
-      <button type="button" class="summary-item fail filter-btn" data-filter="fail" aria-pressed="false"><span>${reportData.summary?.fail || 0}</span><small>Failures</small></button>
-      <button type="button" class="summary-item filter-btn" data-filter="violation" aria-pressed="false"><span>${totalAxeViolations}</span><small>Axe Violations</small></button>
+    <div class="sticky-bar" id="sticky-bar">
+      <div class="summary" role="group" aria-label="Filter results">
+        <button type="button" class="summary-item filter-btn active" data-filter="all" aria-pressed="true"><span>${total}</span><small>All</small></button>
+        <button type="button" class="summary-item pass filter-btn" data-filter="pass" aria-pressed="false"><span>${reportData.summary?.pass || 0}</span><small>Passed</small></button>
+        <button type="button" class="summary-item warn filter-btn" data-filter="warn" aria-pressed="false"><span>${reportData.summary?.warn || 0}</span><small>Warnings</small></button>
+        <button type="button" class="summary-item fail filter-btn" data-filter="fail" aria-pressed="false"><span>${reportData.summary?.fail || 0}</span><small>Failures</small></button>
+        <button type="button" class="summary-item filter-btn" data-filter="violation" aria-pressed="false"><span>${totalAxeViolations}</span><small>Axe Violations</small></button>
+      </div>
+      <div class="filter-row">
+        <label for="chapter-select">Jump to</label>
+        <select id="chapter-select" aria-label="Jump to chapter">
+          <option value="">— Chapter —</option>
+          ${Object.entries(CHECKLIST_CHAPTERS).map(([id, ch]) => `<option value="#ch${ch.id}">Ch.${ch.id} ${ch.name}</option>`).join('')}
+          <option value="#manual-verification">Manual checks</option>
+        </select>
+        <label for="disability-select">Disability</label>
+        <select id="disability-select" aria-label="Filter by disability">
+          <option value="">All disabilities</option>
+          ${ALL_DISABILITIES.filter(d => d !== 'Various').map((d) => `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`).join('')}
+          <option value="Various">Various</option>
+        </select>
+      </div>
+      <div class="disability-stats" id="disability-stats">
+        ${ALL_DISABILITIES.map((d) => `<span class="stat" data-disability="${escapeHtml(d)}"><strong>${escapeHtml(d)}:</strong> ${disabilityStats[d] || 0}</span>`).join('')}
+      </div>
     </div>
 
     ${loadErrors.length > 0 ? `
@@ -248,13 +300,6 @@ export function generateReport(reportData, options = {}) {
       <strong>No pages were tested.</strong> Add URLs to <code>urls.config.js</code> and run <code>npm run test:report</code>
     </div>
     ` : ''}
-
-    <nav>
-      ${Object.entries(CHECKLIST_CHAPTERS)
-        .map(([id, ch]) => `<a href="#ch${ch.id}">Ch.${ch.id} ${ch.name.split(' ')[0]}</a>`)
-        .join('')}
-      <a href="#manual-verification">Manual checks</a>
-    </nav>
 
     <section>
 `;
@@ -280,7 +325,8 @@ export function generateReport(reportData, options = {}) {
           html += '<table><thead><tr><th>Rule</th><th>Status</th><th>Disability</th><th>Message</th></tr></thead><tbody>';
           custom.forEach((r) => {
             const filterVal = r.status === 'pass' ? 'pass' : r.status === 'warn' ? 'warn' : 'fail';
-            html += `<tr class="filterable" data-filter="${filterVal}">
+            const disabilities = (DISABILITY_MAP[r.id] || ['Various']).join('|');
+            html += `<tr class="filterable" data-filter="${filterVal}" data-disability="${escapeHtml(disabilities)}">
               <td>${escapeHtml(r.rule)}</td>
               <td><span class="badge ${r.status}">${r.status}</span></td>
               <td>${escapeHtml(disabilityLabel(r))}</td>
@@ -292,7 +338,7 @@ export function generateReport(reportData, options = {}) {
 
         axeViolations.forEach((v) => {
           html += `
-          <div class="violation filterable" data-filter="violation">
+          <div class="violation filterable" data-filter="violation" data-disability="Various">
             <strong>${escapeHtml(v.id)}: ${escapeHtml(v.help)}</strong>
             ${v.description ? `<p>${escapeHtml(v.description)}</p>` : ''}
             ${v.nodes?.length ? `<p><strong>Affected:</strong> ${v.nodes.length} element(s)</p>` : ''}
@@ -300,7 +346,7 @@ export function generateReport(reportData, options = {}) {
         });
 
         if (custom.length === 0 && axeViolations.length === 0) {
-          html += '<p class="filterable" data-filter="pass">No issues found for this chapter.</p>';
+          html += '<p class="filterable" data-filter="pass" data-disability="">No issues found for this chapter.</p>';
         }
 
         html += '</div>';
@@ -321,14 +367,23 @@ export function generateReport(reportData, options = {}) {
       ${MANUAL_TODO_ITEMS.map((group, groupIndex) => {
         const startIndex = MANUAL_TODO_ITEMS.slice(0, groupIndex).reduce((sum, g) => sum + g.items.length, 0);
         return `
-      <div class="todo-group">
+      <div class="todo-group" data-group-index="${groupIndex}">
         <div class="todo-group-title">${escapeHtml(group.label)}</div>
-        <ul class="todo-list">
+        <table class="todo-table">
+          <thead><tr><th></th><th>Action</th><th>Disabilities</th></tr></thead>
+          <tbody>
           ${group.items.map((item, i) => {
             const idx = startIndex + i;
-            return `<li class="todo-item"><input type="checkbox" id="manual-check-${idx}" data-index="${idx}" aria-label="${escapeHtml(item)}"><label for="manual-check-${idx}">${escapeHtml(item)}</label></li>`;
+            const disabilities = (item.disabilities || []).join(', ');
+            const dataDisability = (item.disabilities || []).join('|');
+            return `<tr class="filterable manual-row" data-filter="manual" data-disability="${escapeHtml(dataDisability)}">
+              <td data-label="Check"><input type="checkbox" id="manual-check-${idx}" data-index="${idx}" aria-label="${escapeHtml(item.text)}"></td>
+              <td data-label="Action"><label for="manual-check-${idx}" class="todo-action">${escapeHtml(item.text)}</label></td>
+              <td data-label="Disabilities" class="disabilities">${escapeHtml(disabilities) || '—'}</td>
+            </tr>`;
           }).join('')}
-        </ul>
+          </tbody>
+        </table>
       </div>`;
       }).join('')}
       <p class="todo-progress" id="todo-progress" aria-live="polite"></p>
@@ -345,6 +400,9 @@ export function generateReport(reportData, options = {}) {
       var urlSections = document.querySelectorAll('.url-section');
       var sectionHeadings = document.querySelectorAll('section h2');
 
+      var currentFilter = 'all';
+      var currentDisability = '';
+
       function setActive(btn) {
         buttons.forEach(function(b) {
           b.classList.toggle('active', b === btn);
@@ -352,10 +410,21 @@ export function generateReport(reportData, options = {}) {
         });
       }
 
-      function updateVisibility(filter) {
+      function disabilityMatches(el, disability) {
+        if (!disability) return true;
+        var d = el.getAttribute('data-disability') || '';
+        if (!d) return true;
+        var list = d.split('|').filter(Boolean);
+        return list.indexOf(disability) !== -1;
+      }
+
+      function updateVisibility(filter, disability) {
+        currentFilter = filter || currentFilter;
+        currentDisability = disability !== undefined ? disability : currentDisability;
         filterables.forEach(function(el) {
-          var match = filter === 'all' || el.getAttribute('data-filter') === filter;
-          el.classList.toggle('hidden', !match);
+          var filterMatch = filter === 'all' || el.getAttribute('data-filter') === filter || (filter === 'all' && el.getAttribute('data-filter') === 'manual');
+          var disabilityMatch = disabilityMatches(el, currentDisability);
+          el.classList.toggle('hidden', !(filterMatch && disabilityMatch));
         });
         urlSections.forEach(function(section) {
           var visible = section.querySelectorAll('.filterable:not(.hidden)').length > 0;
@@ -366,6 +435,10 @@ export function generateReport(reportData, options = {}) {
           var visible = section && section.querySelectorAll('.filterable:not(.hidden)').length > 0;
           h2.classList.toggle('has-visible', visible);
         });
+        document.querySelectorAll('.manual-section .todo-group').forEach(function(group) {
+          var visible = group.querySelectorAll('.filterable:not(.hidden)').length > 0;
+          group.style.display = visible ? '' : 'none';
+        });
       }
 
       buttons.forEach(function(btn) {
@@ -375,6 +448,34 @@ export function generateReport(reportData, options = {}) {
           updateVisibility(filter);
         });
       });
+
+      var chapterSelect = document.getElementById('chapter-select');
+      if (chapterSelect) {
+        chapterSelect.addEventListener('change', function() {
+          var val = this.value;
+          if (val) {
+            var el = document.querySelector(val);
+            if (el) el.scrollIntoView({ behavior: 'smooth' });
+            this.selectedIndex = 0;
+          }
+        });
+      }
+
+      var disabilitySelect = document.getElementById('disability-select');
+      if (disabilitySelect) {
+        disabilitySelect.addEventListener('change', function() {
+          currentDisability = this.value || '';
+          updateVisibility(currentFilter, currentDisability);
+        });
+      }
+
+      var stickyBar = document.getElementById('sticky-bar');
+      if (stickyBar) {
+        window.addEventListener('scroll', function() {
+          stickyBar.classList.toggle('scrolled', window.scrollY > 80);
+        }, { passive: true });
+      }
+
       updateVisibility('all');
 
       var reportId = (window.location.pathname.match(/\\/report\\/([^/]+)/) || [])[1] || 'default';
@@ -453,6 +554,6 @@ export function generateReport(reportData, options = {}) {
 
 const isMain = process.argv[1] && process.argv[1].endsWith('generate-report.js');
 if (isMain) {
-  generateReport();
-  console.log(`Report saved to ${REPORT_FILE}`);
+  const out = generateReport();
+  console.log(`Report saved to ${out}`);
 }
