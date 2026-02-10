@@ -1,0 +1,9 @@
+# Render Blueprint - deploy as Web Service
+services:
+  - type: web
+    name: accessibility-tests
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: PORT
+        value: 3456
