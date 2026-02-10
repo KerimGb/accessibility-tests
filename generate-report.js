@@ -21,6 +21,59 @@ const CHECKLIST_CHAPTERS = {
   dynamicUpdates: { id: '8', name: 'Dynamic Updates, AJAX, and SPAs' },
 };
 
+/** Map check id to primary disabilities (from Deque/WCAG relevance). */
+const DISABILITY_MAP = {
+  'page-title-exists': ['Blindness', 'Low Vision', 'Reading Disabilities', 'Cognitive Disabilities'],
+  'html-lang': ['Blindness', 'Reading Disabilities', 'Cognitive Disabilities'],
+  'landmarks-present': ['Blindness', 'Low Vision', 'Cognitive Disabilities'],
+  'single-main': ['Blindness', 'Low Vision', 'Cognitive Disabilities'],
+  'heading-structure': ['Blindness', 'Low Vision', 'Reading Disabilities', 'Cognitive Disabilities'],
+  'link-text': ['Blindness', 'Low Vision', 'Reading Disabilities'],
+  'link-meaningful': ['Blindness', 'Low Vision', 'Reading Disabilities', 'Cognitive Disabilities'],
+  'skip-link': ['Blindness', 'Dexterity/Motor Disabilities'],
+  'table-headers': ['Blindness', 'Low Vision', 'Reading Disabilities', 'Cognitive Disabilities'],
+  'list-markup': ['Blindness', 'Low Vision', 'Reading Disabilities', 'Cognitive Disabilities'],
+  'iframe-titles': ['Blindness', 'Low Vision', 'Cognitive Disabilities'],
+  'unique-ids': ['Blindness', 'Cognitive Disabilities'],
+  'img-alt': ['Blindness', 'Low Vision', 'Deafblindness'],
+  'img-alt-length': ['Blindness', 'Low Vision', 'Deafblindness', 'Cognitive Disabilities'],
+  'svg-role': ['Blindness', 'Low Vision', 'Deafblindness'],
+  'svg-accessible-name': ['Blindness', 'Low Vision', 'Deafblindness'],
+  'canvas-alt': ['Blindness', 'Low Vision', 'Deafblindness'],
+  'image-map-alt': ['Blindness', 'Low Vision', 'Deafblindness'],
+  'link-differentiation': ['Colorblindness', 'Low Vision'],
+  'focus-indicator': ['Low Vision', 'Dexterity/Motor Disabilities', 'Blindness'],
+  'no-horizontal-scroll': ['Low Vision', 'Dexterity/Motor Disabilities'],
+  'viewport-zoom': ['Low Vision', 'Dexterity/Motor Disabilities'],
+  'video-captions': ['Deafness and Hard-of-Hearing', 'Deafblindness'],
+  'video-autoplay': ['Deafness and Hard-of-Hearing', 'Cognitive Disabilities'],
+  'audio-autoplay': ['Deafness and Hard-of-Hearing'],
+  'flash-alternative': ['Blindness', 'Deafness and Hard-of-Hearing'],
+  'tabindex-positive': ['Dexterity/Motor Disabilities', 'Blindness'],
+  'touch-target-size': ['Dexterity/Motor Disabilities', 'Low Vision'],
+  'form-labels': ['Blindness', 'Cognitive Disabilities', 'Reading Disabilities'],
+  'placeholder-not-only-label': ['Blindness', 'Cognitive Disabilities', 'Reading Disabilities'],
+  'no-auto-refresh': ['Cognitive Disabilities', 'Dexterity/Motor Disabilities'],
+  'dynamic-announcements': ['Blindness', 'Cognitive Disabilities'],
+  'page-load': ['Various'],
+};
+
+const MANUAL_VERIFICATION_CHECKS = [
+  'Page title is unique and describes the page or result of the user action.',
+  'Link purpose can be determined from the link text alone (no "click here").',
+  'Alternative text is meaningful and concise, not just present.',
+  'Color contrast meets 4.5:1 for normal text, 3:1 for large text and UI.',
+  'Information is not conveyed by color alone.',
+  'Focus order is logical and matches visual order; no positive tabindex.',
+  'All interactive elements are keyboard accessible and have visible focus.',
+  'Touch targets are at least 44×44px with spacing between them.',
+  'Form error messages are associated with fields and announced to screen readers.',
+  'Dynamic content changes are announced (e.g. aria-live) where appropriate.',
+  'No content flashes more than 3 times per second (seizure risk).',
+  'Video has captions and, if needed, audio description; audio has transcript.',
+  'Motion/animation can be paused or disabled (e.g. prefers-reduced-motion).',
+];
+
 function statusColor(s) {
   if (s === 'pass') return '#2e7d32';
   if (s === 'fail') return '#c62828';
@@ -61,6 +114,13 @@ export function generateReport(reportData, options = {}) {
   );
 
   const loadErrors = (reportData.customResults || []).filter((r) => r.id === 'page-load');
+
+  const pass = reportData.summary?.pass || 0;
+  const fail = reportData.summary?.fail || 0;
+  const warn = reportData.summary?.warn || 0;
+  const total = pass + fail + warn + totalAxeViolations;
+  const score = total === 0 ? 100 : Math.round((pass / total) * 100);
+  const scoreClamp = Math.max(0, Math.min(100, score));
 
   let html = `<!DOCTYPE html>
 <html lang="en">
@@ -112,6 +172,16 @@ export function generateReport(reportData, options = {}) {
     .violation strong { display: block; margin-bottom: 4px; }
     .violation code { font-size: 0.85em; background: var(--bg); padding: 2px 6px; border-radius: 4px; }
     footer { padding: 20px 32px; font-size: 0.85rem; color: var(--text-muted); border-top: 1px solid var(--border); }
+    .score-hero { padding: 32px 32px 28px; text-align: center; border-bottom: 1px solid var(--border); background: var(--bg); }
+    .score-value { font-size: 4rem; font-weight: 700; line-height: 1; letter-spacing: -0.04em; color: var(--text); }
+    .score-value.good { color: var(--pass); }
+    .score-value.mid { color: var(--warn); }
+    .score-value.low { color: var(--fail); }
+    .score-label { font-size: 0.9rem; color: var(--text-muted); margin-top: 6px; }
+    .manual-section { padding: 28px 32px; background: var(--bg); border-top: 1px solid var(--border); }
+    .manual-section h2 { font-size: 1.1rem; font-weight: 700; margin: 0 0 14px; }
+    .manual-section ul { margin: 0; padding-left: 20px; color: var(--text-muted); font-size: 0.9rem; line-height: 1.6; }
+    .manual-section li { margin-bottom: 6px; }
     .filterable.hidden { display: none !important; }
     .url-section:not(.has-visible) { display: none; }
     .url-section.has-visible { display: block; }
@@ -127,8 +197,13 @@ export function generateReport(reportData, options = {}) {
       <p>Deque University checklists · Generated ${new Date(reportData.generatedAt).toLocaleString()}</p>
     </header>
 
+    <div class="score-hero" aria-label="Overall accessibility score">
+      <div class="score-value ${scoreClamp >= 80 ? 'good' : scoreClamp >= 50 ? 'mid' : 'low'}" aria-hidden="true">${scoreClamp}</div>
+      <div class="score-label">out of 100</div>
+    </div>
+
     <div class="summary" role="group" aria-label="Filter results">
-      <button type="button" class="summary-item filter-btn active" data-filter="all" aria-pressed="true"><span>${reportData.urls?.length || 0}</span><small>All</small></button>
+      <button type="button" class="summary-item filter-btn active" data-filter="all" aria-pressed="true"><span>${total}</span><small>All</small></button>
       <button type="button" class="summary-item pass filter-btn" data-filter="pass" aria-pressed="false"><span>${reportData.summary?.pass || 0}</span><small>Passed</small></button>
       <button type="button" class="summary-item warn filter-btn" data-filter="warn" aria-pressed="false"><span>${reportData.summary?.warn || 0}</span><small>Warnings</small></button>
       <button type="button" class="summary-item fail filter-btn" data-filter="fail" aria-pressed="false"><span>${reportData.summary?.fail || 0}</span><small>Failures</small></button>
@@ -153,6 +228,7 @@ export function generateReport(reportData, options = {}) {
       ${Object.entries(CHECKLIST_CHAPTERS)
         .map(([id, ch]) => `<a href="#ch${ch.id}">Ch.${ch.id} ${ch.name.split(' ')[0]}</a>`)
         .join('')}
+      <a href="#manual-verification">Manual checks</a>
     </nav>
 
     <section>
@@ -172,12 +248,17 @@ export function generateReport(reportData, options = {}) {
         const axeViolations = (axeData?.byChapter?.[chapterId]?.violations || []);
 
         if (custom.length > 0) {
-          html += '<table><thead><tr><th>Rule</th><th>Status</th><th>Message</th></tr></thead><tbody>';
+          const disabilityLabel = (r) => {
+            const ids = DISABILITY_MAP[r.id];
+            return ids ? ids.join(', ') : '—';
+          };
+          html += '<table><thead><tr><th>Rule</th><th>Status</th><th>Disability</th><th>Message</th></tr></thead><tbody>';
           custom.forEach((r) => {
             const filterVal = r.status === 'pass' ? 'pass' : r.status === 'warn' ? 'warn' : 'fail';
             html += `<tr class="filterable" data-filter="${filterVal}">
               <td>${escapeHtml(r.rule)}</td>
               <td><span class="badge ${r.status}">${r.status}</span></td>
+              <td>${escapeHtml(disabilityLabel(r))}</td>
               <td>${escapeHtml(r.message)}</td>
             </tr>`;
           });
@@ -208,6 +289,14 @@ export function generateReport(reportData, options = {}) {
 
   html += `
     </section>
+
+    <div class="manual-section" id="manual-verification">
+      <h2>Checks that require manual verification</h2>
+      <p style="margin:0 0 12px; font-size:0.9rem; color: var(--text-muted);">These cannot be fully automated; verify with real users and assistive tech where relevant.</p>
+      <ul>
+        ${MANUAL_VERIFICATION_CHECKS.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}
+      </ul>
+    </div>
 
     <footer>
       <p>Us · Accessibility audit. Report generated by an automated suite based on Deque University checklists. Some checks require manual verification.</p>
