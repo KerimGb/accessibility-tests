@@ -67,51 +67,56 @@ export function generateReport(reportData, options = {}) {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Accessibility Report - ${new Date(reportData.generatedAt).toLocaleDateString()}</title>
+  <title>Accessibility Report · Us</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    :root { --pass: #2e7d32; --fail: #c62828; --warn: #ed6c02; --info: #1565c0; }
+    :root { --pass: #2e7d32; --fail: #c62828; --warn: #ed6c02; --info: #1565c0; --bg: #f8f7f4; --surface: #fff; --text: #1a1a1a; --text-muted: #5c5c5c; --accent: #2d9d78; --border: #e8e6e1; }
     * { box-sizing: border-box; }
-    body { font-family: 'Segoe UI', system-ui, sans-serif; margin: 0; padding: 24px; background: #f5f5f5; color: #212121; }
-    .container { max-width: 960px; margin: 0 auto; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,.08); overflow: hidden; }
-    header { background: #1a237e; color: #fff; padding: 24px; }
-    header h1 { margin: 0 0 8px; font-size: 1.5rem; }
-    header p { margin: 0; opacity: .9; font-size: .9rem; }
-    .summary { display: flex; gap: 16px; padding: 20px; background: #fafafa; border-bottom: 1px solid #eee; flex-wrap: wrap; }
-    .summary-item { padding: 12px 20px; border-radius: 6px; background: #fff; border: 1px solid #e0e0e0; }
+    body { font-family: 'Plus Jakarta Sans', system-ui, sans-serif; margin: 0; padding: 0; background: var(--bg); color: var(--text); line-height: 1.5; }
+    .container { max-width: 960px; margin: 0 auto; background: var(--surface); border-radius: 16px; box-shadow: 0 2px 24px rgba(0,0,0,.06); border: 1px solid var(--border); overflow: hidden; }
+    header { padding: 28px 32px; border-bottom: 1px solid var(--border); }
+    header .brand { font-size: 1.25rem; font-weight: 700; letter-spacing: -0.02em; }
+    header h1 { margin: 0 0 6px; font-size: 1.4rem; font-weight: 700; letter-spacing: -0.02em; }
+    header p { margin: 0; font-size: 0.9rem; color: var(--text-muted); }
+    .summary { display: flex; gap: 12px; padding: 20px 32px; background: var(--bg); border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+    .summary-item { padding: 14px 20px; border-radius: 10px; background: var(--surface); border: 1px solid var(--border); }
     .summary-item.pass { border-color: var(--pass); background: #e8f5e9; }
     .summary-item.fail { border-color: var(--fail); background: #ffebee; }
     .summary-item.warn { border-color: var(--warn); background: #fff3e0; }
     .summary-item span { display: block; font-size: 1.5rem; font-weight: 700; }
-    .summary-item small { color: #666; }
-    nav { padding: 16px 24px; border-bottom: 1px solid #eee; background: #fafafa; }
-    nav a { margin-right: 16px; color: #1a237e; text-decoration: none; font-weight: 500; }
+    .summary-item small { color: var(--text-muted); font-size: 0.85rem; }
+    nav { padding: 16px 32px; border-bottom: 1px solid var(--border); background: var(--surface); }
+    nav a { margin-right: 20px; color: var(--accent); text-decoration: none; font-weight: 500; font-size: 0.9rem; }
     nav a:hover { text-decoration: underline; }
-    .alert { padding: 16px 24px; margin: 0 24px 24px; border-radius: 6px; }
+    .alert { padding: 18px 32px; margin: 0; border-radius: 0; }
     .alert-warning { background: #fff3e0; border-left: 4px solid var(--warn); }
     .alert-error { background: #ffebee; border-left: 4px solid var(--fail); }
-    section { padding: 24px; }
-    section h2 { margin: 0 0 16px; font-size: 1.25rem; color: #1a237e; }
+    section { padding: 28px 32px; }
+    section h2 { margin: 0 0 20px; font-size: 1.2rem; font-weight: 700; letter-spacing: -0.02em; color: var(--text); }
     .url-section { margin-bottom: 32px; }
-    .url-section h3 { margin: 0 0 12px; font-size: 1rem; color: #333; word-break: break-all; }
-    table { width: 100%; border-collapse: collapse; font-size: .9rem; }
-    th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #eee; }
-    th { background: #f5f5f5; font-weight: 600; }
-    .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: .75rem; font-weight: 600; }
+    .url-section h3 { margin: 0 0 12px; font-size: 0.95rem; color: var(--text-muted); word-break: break-all; font-weight: 500; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    th, td { padding: 12px 14px; text-align: left; border-bottom: 1px solid var(--border); }
+    th { background: var(--bg); font-weight: 600; }
+    .badge { display: inline-block; padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; }
     .badge.pass { background: #e8f5e9; color: var(--pass); }
     .badge.fail { background: #ffebee; color: var(--fail); }
     .badge.warn { background: #fff3e0; color: var(--warn); }
     .badge.info { background: #e3f2fd; color: var(--info); }
-    .violation { margin-bottom: 16px; padding: 12px; background: #fff8e1; border-left: 4px solid var(--warn); border-radius: 4px; font-size: .9rem; }
+    .violation { margin-bottom: 16px; padding: 14px 16px; background: #fff8e1; border-left: 4px solid var(--warn); border-radius: 8px; font-size: 0.9rem; }
     .violation strong { display: block; margin-bottom: 4px; }
-    .violation code { font-size: .85em; background: #f5f5f5; padding: 2px 4px; border-radius: 2px; }
-    footer { padding: 16px 24px; font-size: .85rem; color: #666; border-top: 1px solid #eee; }
+    .violation code { font-size: 0.85em; background: var(--bg); padding: 2px 6px; border-radius: 4px; }
+    footer { padding: 20px 32px; font-size: 0.85rem; color: var(--text-muted); border-top: 1px solid var(--border); }
   </style>
 </head>
 <body>
   <div class="container">
     <header>
-      <h1>Accessibility Audit Report</h1>
-      <p>Based on Deque University Testing Checklists • Generated ${new Date(reportData.generatedAt).toLocaleString()}</p>
+      <div class="brand">Us</div>
+      <h1>Accessibility audit report</h1>
+      <p>Deque University checklists · Generated ${new Date(reportData.generatedAt).toLocaleString()}</p>
     </header>
 
     <div class="summary">
@@ -196,8 +201,7 @@ export function generateReport(reportData, options = {}) {
     </section>
 
     <footer>
-      <p>This report was generated by an automated accessibility testing suite based on Deque University checklists.
-      Some checks require manual verification. For full checklists, see the PDF sources linked in the project documentation.</p>
+      <p>Us · Accessibility audit. Report generated by an automated suite based on Deque University checklists. Some checks require manual verification.</p>
     </footer>
   </div>
 </body>
