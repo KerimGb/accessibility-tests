@@ -74,6 +74,24 @@ const MANUAL_VERIFICATION_CHECKS = [
   'Motion/animation can be paused or disabled (e.g. prefers-reduced-motion).',
 ];
 
+const ASSISTIVE_TECH_CHECKS = [
+  'Screen reader (NVDA, JAWS, or VoiceOver): Navigate by headings and landmarks; all content reachable.',
+  'Screen reader: Form fields have announced labels and errors; buttons/links have clear names.',
+  'Screen reader: No unexpected context changes on focus; dynamic updates are announced.',
+  'Keyboard only: Tab through every interactive element; no keyboard traps.',
+  'Keyboard only: Focus order matches visual order; focus is always visible.',
+  'Keyboard only: All actions (menus, modals, carousels) work with keyboard alone.',
+  'Zoom: At 200% zoom, content reflows; no horizontal scrolling; text still readable.',
+  'Zoom: No content clipped or overlapping at 200%.',
+  'Reduce motion: Animations respect prefers-reduced-motion or can be paused.',
+  'Mobile/touch: All features work with touch; targets are large enough; no gesture-only actions.',
+];
+
+const MANUAL_TODO_ITEMS = [
+  { label: 'Manual verification', items: MANUAL_VERIFICATION_CHECKS },
+  { label: 'Assistive technology & manual testing', items: ASSISTIVE_TECH_CHECKS },
+];
+
 function statusColor(s) {
   if (s === 'pass') return '#2e7d32';
   if (s === 'fail') return '#c62828';
@@ -180,8 +198,15 @@ export function generateReport(reportData, options = {}) {
     .score-label { font-size: 0.9rem; color: var(--text-muted); margin-top: 6px; }
     .manual-section { padding: 28px 32px; background: var(--bg); border-top: 1px solid var(--border); }
     .manual-section h2 { font-size: 1.1rem; font-weight: 700; margin: 0 0 14px; }
-    .manual-section ul { margin: 0; padding-left: 20px; color: var(--text-muted); font-size: 0.9rem; line-height: 1.6; }
-    .manual-section li { margin-bottom: 6px; }
+    .manual-section .todo-group { margin-bottom: 24px; }
+    .manual-section .todo-group:last-child { margin-bottom: 0; }
+    .manual-section .todo-group-title { font-size: 0.95rem; font-weight: 600; margin: 0 0 10px; color: var(--text); }
+    .manual-section .todo-list { list-style: none; margin: 0; padding: 0; }
+    .manual-section .todo-item { margin-bottom: 10px; display: flex; align-items: flex-start; gap: 10px; font-size: 0.9rem; line-height: 1.5; color: var(--text); }
+    .manual-section .todo-item input[type="checkbox"] { margin-top: 3px; flex-shrink: 0; width: 18px; height: 18px; cursor: pointer; }
+    .manual-section .todo-item label { cursor: pointer; flex: 1; }
+    .manual-section .todo-item input:checked + label { text-decoration: line-through; color: var(--text-muted); }
+    .manual-section .todo-progress { font-size: 0.85rem; color: var(--text-muted); margin-top: 16px; }
     .filterable.hidden { display: none !important; }
     .url-section:not(.has-visible) { display: none; }
     .url-section.has-visible { display: block; }
@@ -291,11 +316,22 @@ export function generateReport(reportData, options = {}) {
     </section>
 
     <div class="manual-section" id="manual-verification">
-      <h2>Checks that require manual verification</h2>
-      <p style="margin:0 0 12px; font-size:0.9rem; color: var(--text-muted);">These cannot be fully automated; verify with real users and assistive tech where relevant.</p>
-      <ul>
-        ${MANUAL_VERIFICATION_CHECKS.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}
-      </ul>
+      <h2>Manual & assistive-tech checklist</h2>
+      <p style="margin:0 0 16px; font-size:0.9rem; color: var(--text-muted);">Complete these checks and track progress. Progress is saved for this report.</p>
+      ${MANUAL_TODO_ITEMS.map((group, groupIndex) => {
+        const startIndex = MANUAL_TODO_ITEMS.slice(0, groupIndex).reduce((sum, g) => sum + g.items.length, 0);
+        return `
+      <div class="todo-group">
+        <div class="todo-group-title">${escapeHtml(group.label)}</div>
+        <ul class="todo-list">
+          ${group.items.map((item, i) => {
+            const idx = startIndex + i;
+            return `<li class="todo-item"><input type="checkbox" id="manual-check-${idx}" data-index="${idx}" aria-label="${escapeHtml(item)}"><label for="manual-check-${idx}">${escapeHtml(item)}</label></li>`;
+          }).join('')}
+        </ul>
+      </div>`;
+      }).join('')}
+      <p class="todo-progress" id="todo-progress" aria-live="polite"></p>
     </div>
 
     <footer>
@@ -340,6 +376,71 @@ export function generateReport(reportData, options = {}) {
         });
       });
       updateVisibility('all');
+
+      var reportId = (window.location.pathname.match(/\\/report\\/([^/]+)/) || [])[1] || 'default';
+      var storageKey = 'a11y-manual-' + reportId;
+      var checkboxes = document.querySelectorAll('.manual-section input[type="checkbox"]');
+      var progressEl = document.getElementById('todo-progress');
+      var apiBase = window.location.pathname.replace(/\\/report\\/[^/]+.*$/, '') || '';
+
+      function getCheckedArray() {
+        return Array.prototype.map.call(checkboxes, function(cb) { return cb.checked; });
+      }
+
+      function applyProgress(arr) {
+        if (!Array.isArray(arr)) return;
+        checkboxes.forEach(function(cb, i) {
+          if (arr[i] === true) cb.checked = true;
+        });
+        updateProgressText();
+      }
+
+      function loadProgress() {
+        var url = apiBase + '/api/report/' + encodeURIComponent(reportId) + '/manual-progress';
+        fetch(url).then(function(r) { return r.ok ? r.json() : null; }).then(function(data) {
+          if (data && data.checked && data.checked.length) {
+            applyProgress(data.checked);
+            return;
+          }
+          try {
+            var saved = localStorage.getItem(storageKey);
+            if (saved) applyProgress(JSON.parse(saved));
+          } catch (e) {}
+        }).catch(function() {
+          try {
+            var saved = localStorage.getItem(storageKey);
+            if (saved) applyProgress(JSON.parse(saved));
+          } catch (e) {}
+        }).then(function() { updateProgressText(); });
+      }
+
+      function saveProgress() {
+        var arr = getCheckedArray();
+        updateProgressText();
+        var url = apiBase + '/api/report/' + encodeURIComponent(reportId) + '/manual-progress';
+        fetch(url, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ checked: arr })
+        }).then(function(r) {
+          if (r.ok) return;
+          try { localStorage.setItem(storageKey, JSON.stringify(arr)); } catch (e) {}
+        }).catch(function() {
+          try { localStorage.setItem(storageKey, JSON.stringify(arr)); } catch (e) {}
+        });
+      }
+
+      function updateProgressText() {
+        if (!progressEl) return;
+        var checked = 0;
+        checkboxes.forEach(function(cb) { if (cb.checked) checked++; });
+        progressEl.textContent = checked + ' of ' + checkboxes.length + ' completed';
+      }
+
+      checkboxes.forEach(function(cb) {
+        cb.addEventListener('change', saveProgress);
+      });
+      loadProgress();
     })();
   </script>
 </body>

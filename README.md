@@ -38,6 +38,20 @@ Then open http://localhost:3456 (or the port shown). You can:
 
 Each report has a unique ID in the URL, e.g. `http://localhost:3456/report/a1b2c3d4`
 
+### Optional: store manual checklist progress on FTP
+
+To persist the manual/assistive-tech checklist state on your FTP server (e.g. Combell), set these environment variables before starting the server:
+
+| Variable | Description |
+|----------|-------------|
+| `FTP_HOST` | FTP host (e.g. `ftp.yourdomain.com`) |
+| `FTP_USER` | FTP username |
+| `FTP_PASSWORD` | FTP password |
+| `FTP_SECURE` | Set to `true` for FTPS (TLS) |
+| `FTP_REMOTE_PATH` | Optional. Base path on the server (e.g. `reports` or `accessibility/reports`) |
+
+Progress is stored as `{FTP_REMOTE_PATH}/{reportId}/manual-progress.json`. If these are not set, progress is stored only on the server’s local disk (and in the browser).
+
 ## CLI (alternative)
 
 ### With urls.config.js

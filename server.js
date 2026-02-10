@@ -8,9 +8,10 @@ import express from 'express';
 import multer from 'multer';
 import { spawn } from 'child_process';
 import { v4 as uuidv4 } from 'uuid';
-import { existsSync, mkdirSync, readFileSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { Client } from 'basic-ftp';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPORTS_BASE = join(__dirname, 'reports');
@@ -60,7 +61,7 @@ const app = express();
 const allowedOrigin = process.env.ALLOWED_ORIGIN || '*';
 app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') return res.sendStatus(200);
   next();
@@ -180,6 +181,99 @@ app.get('/api/status/:id', (req, res) => {
   }
 
   res.json(status);
+});
+
+function isValidReportId(id) {
+  return /^[a-zA-Z0-9-]+$/.test(id) && id.length <= 32;
+}
+
+const FTP_CONFIG = process.env.FTP_HOST && process.env.FTP_USER
+  ? {
+      host: process.env.FTP_HOST,
+      user: process.env.FTP_USER,
+      password: process.env.FTP_PASSWORD || '',
+      secure: process.env.FTP_SECURE === 'true',
+      remotePath: (process.env.FTP_REMOTE_PATH || '').replace(/\/$/, ''),
+    }
+  : null;
+
+async function ftpDownload(remotePath) {
+  if (!FTP_CONFIG) return null;
+  const client = new Client(60_000);
+  try {
+    await client.access({
+      host: FTP_CONFIG.host,
+      user: FTP_CONFIG.user,
+      password: FTP_CONFIG.password,
+      secure: FTP_CONFIG.secure,
+    });
+    const fullPath = FTP_CONFIG.remotePath ? `${FTP_CONFIG.remotePath}/${remotePath}` : remotePath;
+    const localFile = join(REPORTS_BASE, remotePath);
+    const dir = dirname(localFile);
+    if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+    await client.downloadTo(localFile, fullPath);
+    return readFileSync(localFile, 'utf8');
+  } catch {
+    return null;
+  } finally {
+    client.close();
+  }
+}
+
+async function ftpUpload(localPath, remotePath) {
+  if (!FTP_CONFIG) return;
+  const client = new Client(60_000);
+  try {
+    await client.access({
+      host: FTP_CONFIG.host,
+      user: FTP_CONFIG.user,
+      password: FTP_CONFIG.password,
+      secure: FTP_CONFIG.secure,
+    });
+    const fullRemote = FTP_CONFIG.remotePath ? `${FTP_CONFIG.remotePath}/${remotePath}` : remotePath;
+    const remoteDir = dirname(fullRemote);
+    if (remoteDir !== '.') await client.ensureDir(remoteDir);
+    await client.uploadFrom(localPath, fullRemote);
+  } catch (err) {
+    console.error('FTP upload failed:', err.message);
+  } finally {
+    client.close();
+  }
+}
+
+app.get('/api/report/:id/manual-progress', async (req, res) => {
+  const id = req.params.id;
+  if (!isValidReportId(id)) return res.status(400).json({ error: 'Invalid report ID' });
+  const filePath = join(REPORTS_BASE, id, 'manual-progress.json');
+  let raw = null;
+  try {
+    raw = await ftpDownload(`${id}/manual-progress.json`);
+  } catch {}
+  if (!raw && existsSync(filePath)) raw = readFileSync(filePath, 'utf8');
+  if (!raw) return res.json({ checked: [] });
+  try {
+    const data = JSON.parse(raw);
+    res.json({ checked: Array.isArray(data.checked) ? data.checked : [] });
+  } catch {
+    res.json({ checked: [] });
+  }
+});
+
+app.put('/api/report/:id/manual-progress', async (req, res) => {
+  const id = req.params.id;
+  if (!isValidReportId(id)) return res.status(400).json({ error: 'Invalid report ID' });
+  const reportDir = join(REPORTS_BASE, id);
+  if (!existsSync(reportDir)) return res.status(404).json({ error: 'Report not found' });
+  const checked = req.body?.checked;
+  if (!Array.isArray(checked)) return res.status(400).json({ error: 'Body must include checked array' });
+  const filePath = join(reportDir, 'manual-progress.json');
+  try {
+    writeFileSync(filePath, JSON.stringify({ checked }), 'utf8');
+    ftpUpload(filePath, `${id}/manual-progress.json`).catch(() => {});
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.get('/report/:id', (req, res) => {
