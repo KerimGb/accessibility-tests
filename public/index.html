@@ -4,12 +4,711 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Accessibility Audit · Us</title>
+  <link rel="icon" href="https://about-us.be/wp-content/smush-avif/2025/09/logo-us-32x32.png.avif" sizes="32x32">
+  <link rel="icon" href="https://about-us.be/wp-content/smush-avif/2025/09/logo-us-200x200.png.avif" sizes="192x192">
+  <link rel="apple-touch-icon" href="https://about-us.be/wp-content/smush-avif/2025/09/logo-us-200x200.png.avif">
+  <meta name="msapplication-TileImage" content="https://about-us.be/wp-content/uploads/2025/09/logo-us-300x300.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://use.typekit.net/wbo4qbn.css">
   <style>
+    @font-face {
+      font-family: 'Bricolage Grotesque';
+      font-style: normal;
+      font-weight: 200;
+      font-stretch: normal;
+      font-display: swap;
+      src: url(https://fonts.gstatic.com/s/bricolagegrotesque/v9/3y9U6as8bTXq_nANBjzKo3IeZx8z6up5BeSl5jBNz_19PpbpMXuECpwUxJBOm_OJWiaaD30YfKfjZZoLvZvi-MUlstwJ.woff2) format('woff2');
+      unicode-range: U+0102-0103,U+0110-0111,U+0128-0129,U+0168-0169,U+01A0-01A1,U+01AF-01B0,U+0300-0301,U+0303-0304,U+0308-0309,U+0323,U+0329,U+1EA0-1EF9,U+20AB
+  }
+
+  @font-face {
+      font-family: 'Bricolage Grotesque';
+      font-style: normal;
+      font-weight: 200;
+      font-stretch: normal;
+      font-display: swap;
+      src: url(https://fonts.gstatic.com/s/bricolagegrotesque/v9/3y9U6as8bTXq_nANBjzKo3IeZx8z6up5BeSl5jBNz_19PpbpMXuECpwUxJBOm_OJWiaaD30YfKfjZZoLvZvi-MQlstwJ.woff2) format('woff2');
+      unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF
+  }
+
+  @font-face {
+      font-family: 'Bricolage Grotesque';
+      font-style: normal;
+      font-weight: 200;
+      font-stretch: normal;
+      font-display: swap;
+      src: url(https://fonts.gstatic.com/s/bricolagegrotesque/v9/3y9U6as8bTXq_nANBjzKo3IeZx8z6up5BeSl5jBNz_19PpbpMXuECpwUxJBOm_OJWiaaD30YfKfjZZoLvZvi-Molsg.woff2) format('woff2');
+      unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD
+  }
+
+  @font-face {
+      font-family: 'Bricolage Grotesque';
+      font-style: normal;
+      font-weight: 300;
+      font-stretch: normal;
+      font-display: swap;
+      src: url(https://fonts.gstatic.com/s/bricolagegrotesque/v9/3y9U6as8bTXq_nANBjzKo3IeZx8z6up5BeSl5jBNz_19PpbpMXuECpwUxJBOm_OJWiaaD30YfKfjZZoLvUXi-MUlstwJ.woff2) format('woff2');
+      unicode-range: U+0102-0103,U+0110-0111,U+0128-0129,U+0168-0169,U+01A0-01A1,U+01AF-01B0,U+0300-0301,U+0303-0304,U+0308-0309,U+0323,U+0329,U+1EA0-1EF9,U+20AB
+  }
+
+  @font-face {
+      font-family: 'Bricolage Grotesque';
+      font-style: normal;
+      font-weight: 300;
+      font-stretch: normal;
+      font-display: swap;
+      src: url(https://fonts.gstatic.com/s/bricolagegrotesque/v9/3y9U6as8bTXq_nANBjzKo3IeZx8z6up5BeSl5jBNz_19PpbpMXuECpwUxJBOm_OJWiaaD30YfKfjZZoLvUXi-MQlstwJ.woff2) format('woff2');
+      unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF
+  }
+
+  @font-face {
+      font-family: 'Bricolage Grotesque';
+      font-style: normal;
+      font-weight: 300;
+      font-stretch: normal;
+      font-display: swap;
+      src: url(https://fonts.gstatic.com/s/bricolagegrotesque/v9/3y9U6as8bTXq_nANBjzKo3IeZx8z6up5BeSl5jBNz_19PpbpMXuECpwUxJBOm_OJWiaaD30YfKfjZZoLvUXi-Molsg.woff2) format('woff2');
+      unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD
+  }
+
+  @font-face {
+      font-family: 'Bricolage Grotesque';
+      font-style: normal;
+      font-weight: 400;
+      font-stretch: normal;
+      font-display: swap;
+      src: url(https://fonts.gstatic.com/s/bricolagegrotesque/v9/3y9U6as8bTXq_nANBjzKo3IeZx8z6up5BeSl5jBNz_19PpbpMXuECpwUxJBOm_OJWiaaD30YfKfjZZoLvRvi-MUlstwJ.woff2) format('woff2');
+      unicode-range: U+0102-0103,U+0110-0111,U+0128-0129,U+0168-0169,U+01A0-01A1,U+01AF-01B0,U+0300-0301,U+0303-0304,U+0308-0309,U+0323,U+0329,U+1EA0-1EF9,U+20AB
+  }
+
+  @font-face {
+      font-family: 'Bricolage Grotesque';
+      font-style: normal;
+      font-weight: 400;
+      font-stretch: normal;
+      font-display: swap;
+      src: url(https://fonts.gstatic.com/s/bricolagegrotesque/v9/3y9U6as8bTXq_nANBjzKo3IeZx8z6up5BeSl5jBNz_19PpbpMXuECpwUxJBOm_OJWiaaD30YfKfjZZoLvRvi-MQlstwJ.woff2) format('woff2');
+      unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF
+  }
+
+  @font-face {
+      font-family: 'Bricolage Grotesque';
+      font-style: normal;
+      font-weight: 400;
+      font-stretch: normal;
+      font-display: swap;
+      src: url(https://fonts.gstatic.com/s/bricolagegrotesque/v9/3y9U6as8bTXq_nANBjzKo3IeZx8z6up5BeSl5jBNz_19PpbpMXuECpwUxJBOm_OJWiaaD30YfKfjZZoLvRvi-Molsg.woff2) format('woff2');
+      unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD
+  }
+
+  @font-face {
+      font-family: 'Bricolage Grotesque';
+      font-style: normal;
+      font-weight: 500;
+      font-stretch: normal;
+      font-display: swap;
+      src: url(https://fonts.gstatic.com/s/bricolagegrotesque/v9/3y9U6as8bTXq_nANBjzKo3IeZx8z6up5BeSl5jBNz_19PpbpMXuECpwUxJBOm_OJWiaaD30YfKfjZZoLvSni-MUlstwJ.woff2) format('woff2');
+      unicode-range: U+0102-0103,U+0110-0111,U+0128-0129,U+0168-0169,U+01A0-01A1,U+01AF-01B0,U+0300-0301,U+0303-0304,U+0308-0309,U+0323,U+0329,U+1EA0-1EF9,U+20AB
+  }
+
+  @font-face {
+      font-family: 'Bricolage Grotesque';
+      font-style: normal;
+      font-weight: 500;
+      font-stretch: normal;
+      font-display: swap;
+      src: url(https://fonts.gstatic.com/s/bricolagegrotesque/v9/3y9U6as8bTXq_nANBjzKo3IeZx8z6up5BeSl5jBNz_19PpbpMXuECpwUxJBOm_OJWiaaD30YfKfjZZoLvSni-MQlstwJ.woff2) format('woff2');
+      unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF
+  }
+
+  @font-face {
+      font-family: 'Bricolage Grotesque';
+      font-style: normal;
+      font-weight: 500;
+      font-stretch: normal;
+      font-display: swap;
+      src: url(https://fonts.gstatic.com/s/bricolagegrotesque/v9/3y9U6as8bTXq_nANBjzKo3IeZx8z6up5BeSl5jBNz_19PpbpMXuECpwUxJBOm_OJWiaaD30YfKfjZZoLvSni-Molsg.woff2) format('woff2');
+      unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD
+  }
+
+  @font-face {
+      font-family: 'Bricolage Grotesque';
+      font-style: normal;
+      font-weight: 600;
+      font-stretch: normal;
+      font-display: swap;
+      src: url(https://fonts.gstatic.com/s/bricolagegrotesque/v9/3y9U6as8bTXq_nANBjzKo3IeZx8z6up5BeSl5jBNz_19PpbpMXuECpwUxJBOm_OJWiaaD30YfKfjZZoLvcXl-MUlstwJ.woff2) format('woff2');
+      unicode-range: U+0102-0103,U+0110-0111,U+0128-0129,U+0168-0169,U+01A0-01A1,U+01AF-01B0,U+0300-0301,U+0303-0304,U+0308-0309,U+0323,U+0329,U+1EA0-1EF9,U+20AB
+  }
+
+  @font-face {
+      font-family: 'Bricolage Grotesque';
+      font-style: normal;
+      font-weight: 600;
+      font-stretch: normal;
+      font-display: swap;
+      src: url(https://fonts.gstatic.com/s/bricolagegrotesque/v9/3y9U6as8bTXq_nANBjzKo3IeZx8z6up5BeSl5jBNz_19PpbpMXuECpwUxJBOm_OJWiaaD30YfKfjZZoLvcXl-MQlstwJ.woff2) format('woff2');
+      unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF
+  }
+
+  @font-face {
+      font-family: 'Bricolage Grotesque';
+      font-style: normal;
+      font-weight: 600;
+      font-stretch: normal;
+      font-display: swap;
+      src: url(https://fonts.gstatic.com/s/bricolagegrotesque/v9/3y9U6as8bTXq_nANBjzKo3IeZx8z6up5BeSl5jBNz_19PpbpMXuECpwUxJBOm_OJWiaaD30YfKfjZZoLvcXl-Molsg.woff2) format('woff2');
+      unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD
+  }
+
+  @font-face {
+      font-family: 'Bricolage Grotesque';
+      font-style: normal;
+      font-weight: 700;
+      font-stretch: normal;
+      font-display: swap;
+      src: url(https://fonts.gstatic.com/s/bricolagegrotesque/v9/3y9U6as8bTXq_nANBjzKo3IeZx8z6up5BeSl5jBNz_19PpbpMXuECpwUxJBOm_OJWiaaD30YfKfjZZoLvfzl-MUlstwJ.woff2) format('woff2');
+      unicode-range: U+0102-0103,U+0110-0111,U+0128-0129,U+0168-0169,U+01A0-01A1,U+01AF-01B0,U+0300-0301,U+0303-0304,U+0308-0309,U+0323,U+0329,U+1EA0-1EF9,U+20AB
+  }
+
+  @font-face {
+      font-family: 'Bricolage Grotesque';
+      font-style: normal;
+      font-weight: 700;
+      font-stretch: normal;
+      font-display: swap;
+      src: url(https://fonts.gstatic.com/s/bricolagegrotesque/v9/3y9U6as8bTXq_nANBjzKo3IeZx8z6up5BeSl5jBNz_19PpbpMXuECpwUxJBOm_OJWiaaD30YfKfjZZoLvfzl-MQlstwJ.woff2) format('woff2');
+      unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF
+  }
+
+  @font-face {
+      font-family: 'Bricolage Grotesque';
+      font-style: normal;
+      font-weight: 700;
+      font-stretch: normal;
+      font-display: swap;
+      src: url(https://fonts.gstatic.com/s/bricolagegrotesque/v9/3y9U6as8bTXq_nANBjzKo3IeZx8z6up5BeSl5jBNz_19PpbpMXuECpwUxJBOm_OJWiaaD30YfKfjZZoLvfzl-Molsg.woff2) format('woff2');
+      unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD
+  }
+
+  @font-face {
+      font-family: 'Bricolage Grotesque';
+      font-style: normal;
+      font-weight: 800;
+      font-stretch: normal;
+      font-display: swap;
+      src: url(https://fonts.gstatic.com/s/bricolagegrotesque/v9/3y9U6as8bTXq_nANBjzKo3IeZx8z6up5BeSl5jBNz_19PpbpMXuECpwUxJBOm_OJWiaaD30YfKfjZZoLvZvl-MUlstwJ.woff2) format('woff2');
+      unicode-range: U+0102-0103,U+0110-0111,U+0128-0129,U+0168-0169,U+01A0-01A1,U+01AF-01B0,U+0300-0301,U+0303-0304,U+0308-0309,U+0323,U+0329,U+1EA0-1EF9,U+20AB
+  }
+
+  @font-face {
+      font-family: 'Bricolage Grotesque';
+      font-style: normal;
+      font-weight: 800;
+      font-stretch: normal;
+      font-display: swap;
+      src: url(https://fonts.gstatic.com/s/bricolagegrotesque/v9/3y9U6as8bTXq_nANBjzKo3IeZx8z6up5BeSl5jBNz_19PpbpMXuECpwUxJBOm_OJWiaaD30YfKfjZZoLvZvl-MQlstwJ.woff2) format('woff2');
+      unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF
+  }
+
+  @font-face {
+      font-family: 'Bricolage Grotesque';
+      font-style: normal;
+      font-weight: 800;
+      font-stretch: normal;
+      font-display: swap;
+      src: url(https://fonts.gstatic.com/s/bricolagegrotesque/v9/3y9U6as8bTXq_nANBjzKo3IeZx8z6up5BeSl5jBNz_19PpbpMXuECpwUxJBOm_OJWiaaD30YfKfjZZoLvZvl-Molsg.woff2) format('woff2');
+      unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD
+  }
+  @font-face {
+      font-family: 'Public Sans';
+      font-style: italic;
+      font-weight: 100;
+      font-display: swap;
+      src: url(https://fonts.gstatic.com/s/publicsans/v21/ijwAs572Xtc6ZYQws9YVwnNDZpDyNjGolS673tpRgTcld1sdfg.woff2) format('woff2');
+      unicode-range: U+0102-0103,U+0110-0111,U+0128-0129,U+0168-0169,U+01A0-01A1,U+01AF-01B0,U+0300-0301,U+0303-0304,U+0308-0309,U+0323,U+0329,U+1EA0-1EF9,U+20AB
+  }
+
+  @font-face {
+      font-family: 'Public Sans';
+      font-style: italic;
+      font-weight: 100;
+      font-display: swap;
+      src: url(https://fonts.gstatic.com/s/publicsans/v21/ijwAs572Xtc6ZYQws9YVwnNDZpDyNjGolS673tpRgTckd1sdfg.woff2) format('woff2');
+      unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF
+  }
+
+  @font-face {
+      font-family: 'Public Sans';
+      font-style: italic;
+      font-weight: 100;
+      font-display: swap;
+      src: url(https://fonts.gstatic.com/s/publicsans/v21/ijwAs572Xtc6ZYQws9YVwnNDZpDyNjGolS673tpRgTcqd1s.woff2) format('woff2');
+      unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD
+  }
+
+  @font-face {
+      font-family: 'Public Sans';
+      font-style: italic;
+      font-weight: 200;
+      font-display: swap;
+      src: url(https://fonts.gstatic.com/s/publicsans/v21/ijwAs572Xtc6ZYQws9YVwnNDZpDyNjGolS673trRgDcld1sdfg.woff2) format('woff2');
+      unicode-range: U+0102-0103,U+0110-0111,U+0128-0129,U+0168-0169,U+01A0-01A1,U+01AF-01B0,U+0300-0301,U+0303-0304,U+0308-0309,U+0323,U+0329,U+1EA0-1EF9,U+20AB
+  }
+
+  @font-face {
+      font-family: 'Public Sans';
+      font-style: italic;
+      font-weight: 200;
+      font-display: swap;
+      src: url(https://fonts.gstatic.com/s/publicsans/v21/ijwAs572Xtc6ZYQws9YVwnNDZpDyNjGolS673trRgDckd1sdfg.woff2) format('woff2');
+      unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF
+  }
+
+  @font-face {
+      font-family: 'Public Sans';
+      font-style: italic;
+      font-weight: 200;
+      font-display: swap;
+      src: url(https://fonts.gstatic.com/s/publicsans/v21/ijwAs572Xtc6ZYQws9YVwnNDZpDyNjGolS673trRgDcqd1s.woff2) format('woff2');
+      unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD
+  }
+
+  @font-face {
+      font-family: 'Public Sans';
+      font-style: italic;
+      font-weight: 300;
+      font-display: swap;
+      src: url(https://fonts.gstatic.com/s/publicsans/v21/ijwAs572Xtc6ZYQws9YVwnNDZpDyNjGolS673toPgDcld1sdfg.woff2) format('woff2');
+      unicode-range: U+0102-0103,U+0110-0111,U+0128-0129,U+0168-0169,U+01A0-01A1,U+01AF-01B0,U+0300-0301,U+0303-0304,U+0308-0309,U+0323,U+0329,U+1EA0-1EF9,U+20AB
+  }
+
+  @font-face {
+      font-family: 'Public Sans';
+      font-style: italic;
+      font-weight: 300;
+      font-display: swap;
+      src: url(https://fonts.gstatic.com/s/publicsans/v21/ijwAs572Xtc6ZYQws9YVwnNDZpDyNjGolS673toPgDckd1sdfg.woff2) format('woff2');
+      unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF
+  }
+
+  @font-face {
+      font-family: 'Public Sans';
+      font-style: italic;
+      font-weight: 300;
+      font-display: swap;
+      src: url(https://fonts.gstatic.com/s/publicsans/v21/ijwAs572Xtc6ZYQws9YVwnNDZpDyNjGolS673toPgDcqd1s.woff2) format('woff2');
+      unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD
+  }
+
+  @font-face {
+      font-family: 'Public Sans';
+      font-style: italic;
+      font-weight: 400;
+      font-display: swap;
+      src: url(https://fonts.gstatic.com/s/publicsans/v21/ijwAs572Xtc6ZYQws9YVwnNDZpDyNjGolS673tpRgDcld1sdfg.woff2) format('woff2');
+      unicode-range: U+0102-0103,U+0110-0111,U+0128-0129,U+0168-0169,U+01A0-01A1,U+01AF-01B0,U+0300-0301,U+0303-0304,U+0308-0309,U+0323,U+0329,U+1EA0-1EF9,U+20AB
+  }
+
+  @font-face {
+      font-family: 'Public Sans';
+      font-style: italic;
+      font-weight: 400;
+      font-display: swap;
+      src: url(https://fonts.gstatic.com/s/publicsans/v21/ijwAs572Xtc6ZYQws9YVwnNDZpDyNjGolS673tpRgDckd1sdfg.woff2) format('woff2');
+      unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF
+  }
+
+  @font-face {
+      font-family: 'Public Sans';
+      font-style: italic;
+      font-weight: 400;
+      font-display: swap;
+      src: url(https://fonts.gstatic.com/s/publicsans/v21/ijwAs572Xtc6ZYQws9YVwnNDZpDyNjGolS673tpRgDcqd1s.woff2) format('woff2');
+      unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD
+  }
+
+  @font-face {
+      font-family: 'Public Sans';
+      font-style: italic;
+      font-weight: 500;
+      font-display: swap;
+      src: url(https://fonts.gstatic.com/s/publicsans/v21/ijwAs572Xtc6ZYQws9YVwnNDZpDyNjGolS673tpjgDcld1sdfg.woff2) format('woff2');
+      unicode-range: U+0102-0103,U+0110-0111,U+0128-0129,U+0168-0169,U+01A0-01A1,U+01AF-01B0,U+0300-0301,U+0303-0304,U+0308-0309,U+0323,U+0329,U+1EA0-1EF9,U+20AB
+  }
+
+  @font-face {
+      font-family: 'Public Sans';
+      font-style: italic;
+      font-weight: 500;
+      font-display: swap;
+      src: url(https://fonts.gstatic.com/s/publicsans/v21/ijwAs572Xtc6ZYQws9YVwnNDZpDyNjGolS673tpjgDckd1sdfg.woff2) format('woff2');
+      unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF
+  }
+
+  @font-face {
+      font-family: 'Public Sans';
+      font-style: italic;
+      font-weight: 500;
+      font-display: swap;
+      src: url(https://fonts.gstatic.com/s/publicsans/v21/ijwAs572Xtc6ZYQws9YVwnNDZpDyNjGolS673tpjgDcqd1s.woff2) format('woff2');
+      unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD
+  }
+
+  @font-face {
+      font-family: 'Public Sans';
+      font-style: italic;
+      font-weight: 600;
+      font-display: swap;
+      src: url(https://fonts.gstatic.com/s/publicsans/v21/ijwAs572Xtc6ZYQws9YVwnNDZpDyNjGolS673tqPhzcld1sdfg.woff2) format('woff2');
+      unicode-range: U+0102-0103,U+0110-0111,U+0128-0129,U+0168-0169,U+01A0-01A1,U+01AF-01B0,U+0300-0301,U+0303-0304,U+0308-0309,U+0323,U+0329,U+1EA0-1EF9,U+20AB
+  }
+
+  @font-face {
+      font-family: 'Public Sans';
+      font-style: italic;
+      font-weight: 600;
+      font-display: swap;
+      src: url(https://fonts.gstatic.com/s/publicsans/v21/ijwAs572Xtc6ZYQws9YVwnNDZpDyNjGolS673tqPhzckd1sdfg.woff2) format('woff2');
+      unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF
+  }
+
+  @font-face {
+      font-family: 'Public Sans';
+      font-style: italic;
+      font-weight: 600;
+      font-display: swap;
+      src: url(https://fonts.gstatic.com/s/publicsans/v21/ijwAs572Xtc6ZYQws9YVwnNDZpDyNjGolS673tqPhzcqd1s.woff2) format('woff2');
+      unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD
+  }
+
+  @font-face {
+      font-family: 'Public Sans';
+      font-style: italic;
+      font-weight: 700;
+      font-display: swap;
+      src: url(https://fonts.gstatic.com/s/publicsans/v21/ijwAs572Xtc6ZYQws9YVwnNDZpDyNjGolS673tq2hzcld1sdfg.woff2) format('woff2');
+      unicode-range: U+0102-0103,U+0110-0111,U+0128-0129,U+0168-0169,U+01A0-01A1,U+01AF-01B0,U+0300-0301,U+0303-0304,U+0308-0309,U+0323,U+0329,U+1EA0-1EF9,U+20AB
+  }
+
+  @font-face {
+      font-family: 'Public Sans';
+      font-style: italic;
+      font-weight: 700;
+      font-display: swap;
+      src: url(https://fonts.gstatic.com/s/publicsans/v21/ijwAs572Xtc6ZYQws9YVwnNDZpDyNjGolS673tq2hzckd1sdfg.woff2) format('woff2');
+      unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF
+  }
+
+  @font-face {
+      font-family: 'Public Sans';
+      font-style: italic;
+      font-weight: 700;
+      font-display: swap;
+      src: url(https://fonts.gstatic.com/s/publicsans/v21/ijwAs572Xtc6ZYQws9YVwnNDZpDyNjGolS673tq2hzcqd1s.woff2) format('woff2');
+      unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD
+  }
+
+  @font-face {
+      font-family: 'Public Sans';
+      font-style: italic;
+      font-weight: 800;
+      font-display: swap;
+      src: url(https://fonts.gstatic.com/s/publicsans/v21/ijwAs572Xtc6ZYQws9YVwnNDZpDyNjGolS673trRhzcld1sdfg.woff2) format('woff2');
+      unicode-range: U+0102-0103,U+0110-0111,U+0128-0129,U+0168-0169,U+01A0-01A1,U+01AF-01B0,U+0300-0301,U+0303-0304,U+0308-0309,U+0323,U+0329,U+1EA0-1EF9,U+20AB
+  }
+
+  @font-face {
+      font-family: 'Public Sans';
+      font-style: italic;
+      font-weight: 800;
+      font-display: swap;
+      src: url(https://fonts.gstatic.com/s/publicsans/v21/ijwAs572Xtc6ZYQws9YVwnNDZpDyNjGolS673trRhzckd1sdfg.woff2) format('woff2');
+      unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF
+  }
+
+  @font-face {
+      font-family: 'Public Sans';
+      font-style: italic;
+      font-weight: 800;
+      font-display: swap;
+      src: url(https://fonts.gstatic.com/s/publicsans/v21/ijwAs572Xtc6ZYQws9YVwnNDZpDyNjGolS673trRhzcqd1s.woff2) format('woff2');
+      unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD
+  }
+
+  @font-face {
+      font-family: 'Public Sans';
+      font-style: italic;
+      font-weight: 900;
+      font-display: swap;
+      src: url(https://fonts.gstatic.com/s/publicsans/v21/ijwAs572Xtc6ZYQws9YVwnNDZpDyNjGolS673tr4hzcld1sdfg.woff2) format('woff2');
+      unicode-range: U+0102-0103,U+0110-0111,U+0128-0129,U+0168-0169,U+01A0-01A1,U+01AF-01B0,U+0300-0301,U+0303-0304,U+0308-0309,U+0323,U+0329,U+1EA0-1EF9,U+20AB
+  }
+
+  @font-face {
+      font-family: 'Public Sans';
+      font-style: italic;
+      font-weight: 900;
+      font-display: swap;
+      src: url(https://fonts.gstatic.com/s/publicsans/v21/ijwAs572Xtc6ZYQws9YVwnNDZpDyNjGolS673tr4hzckd1sdfg.woff2) format('woff2');
+      unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF
+  }
+
+  @font-face {
+      font-family: 'Public Sans';
+      font-style: italic;
+      font-weight: 900;
+      font-display: swap;
+      src: url(https://fonts.gstatic.com/s/publicsans/v21/ijwAs572Xtc6ZYQws9YVwnNDZpDyNjGolS673tr4hzcqd1s.woff2) format('woff2');
+      unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD
+  }
+
+  @font-face {
+      font-family: 'Public Sans';
+      font-style: normal;
+      font-weight: 100;
+      font-display: swap;
+      src: url(https://fonts.gstatic.com/s/publicsans/v21/ijwGs572Xtc6ZYQws9YVwllKVG8qX1oyOymuFpiJywcob18.woff2) format('woff2');
+      unicode-range: U+0102-0103,U+0110-0111,U+0128-0129,U+0168-0169,U+01A0-01A1,U+01AF-01B0,U+0300-0301,U+0303-0304,U+0308-0309,U+0323,U+0329,U+1EA0-1EF9,U+20AB
+  }
+
+  @font-face {
+      font-family: 'Public Sans';
+      font-style: normal;
+      font-weight: 100;
+      font-display: swap;
+      src: url(https://fonts.gstatic.com/s/publicsans/v21/ijwGs572Xtc6ZYQws9YVwllKVG8qX1oyOymuFpiJygcob18.woff2) format('woff2');
+      unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF
+  }
+
+  @font-face {
+      font-family: 'Public Sans';
+      font-style: normal;
+      font-weight: 100;
+      font-display: swap;
+      src: url(https://fonts.gstatic.com/s/publicsans/v21/ijwGs572Xtc6ZYQws9YVwllKVG8qX1oyOymuFpiJxAco.woff2) format('woff2');
+      unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD
+  }
+
+  @font-face {
+      font-family: 'Public Sans';
+      font-style: normal;
+      font-weight: 200;
+      font-display: swap;
+      src: url(https://fonts.gstatic.com/s/publicsans/v21/ijwGs572Xtc6ZYQws9YVwllKVG8qX1oyOymulpmJywcob18.woff2) format('woff2');
+      unicode-range: U+0102-0103,U+0110-0111,U+0128-0129,U+0168-0169,U+01A0-01A1,U+01AF-01B0,U+0300-0301,U+0303-0304,U+0308-0309,U+0323,U+0329,U+1EA0-1EF9,U+20AB
+  }
+
+  @font-face {
+      font-family: 'Public Sans';
+      font-style: normal;
+      font-weight: 200;
+      font-display: swap;
+      src: url(https://fonts.gstatic.com/s/publicsans/v21/ijwGs572Xtc6ZYQws9YVwllKVG8qX1oyOymulpmJygcob18.woff2) format('woff2');
+      unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF
+  }
+
+  @font-face {
+      font-family: 'Public Sans';
+      font-style: normal;
+      font-weight: 200;
+      font-display: swap;
+      src: url(https://fonts.gstatic.com/s/publicsans/v21/ijwGs572Xtc6ZYQws9YVwllKVG8qX1oyOymulpmJxAco.woff2) format('woff2');
+      unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD
+  }
+
+  @font-face {
+      font-family: 'Public Sans';
+      font-style: normal;
+      font-weight: 300;
+      font-display: swap;
+      src: url(https://fonts.gstatic.com/s/publicsans/v21/ijwGs572Xtc6ZYQws9YVwllKVG8qX1oyOymuSJmJywcob18.woff2) format('woff2');
+      unicode-range: U+0102-0103,U+0110-0111,U+0128-0129,U+0168-0169,U+01A0-01A1,U+01AF-01B0,U+0300-0301,U+0303-0304,U+0308-0309,U+0323,U+0329,U+1EA0-1EF9,U+20AB
+  }
+
+  @font-face {
+      font-family: 'Public Sans';
+      font-style: normal;
+      font-weight: 300;
+      font-display: swap;
+      src: url(https://fonts.gstatic.com/s/publicsans/v21/ijwGs572Xtc6ZYQws9YVwllKVG8qX1oyOymuSJmJygcob18.woff2) format('woff2');
+      unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF
+  }
+
+  @font-face {
+      font-family: 'Public Sans';
+      font-style: normal;
+      font-weight: 300;
+      font-display: swap;
+      src: url(https://fonts.gstatic.com/s/publicsans/v21/ijwGs572Xtc6ZYQws9YVwllKVG8qX1oyOymuSJmJxAco.woff2) format('woff2');
+      unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD
+  }
+
+  @font-face {
+      font-family: 'Public Sans';
+      font-style: normal;
+      font-weight: 400;
+      font-display: swap;
+      src: url(https://fonts.gstatic.com/s/publicsans/v21/ijwGs572Xtc6ZYQws9YVwllKVG8qX1oyOymuFpmJywcob18.woff2) format('woff2');
+      unicode-range: U+0102-0103,U+0110-0111,U+0128-0129,U+0168-0169,U+01A0-01A1,U+01AF-01B0,U+0300-0301,U+0303-0304,U+0308-0309,U+0323,U+0329,U+1EA0-1EF9,U+20AB
+  }
+
+  @font-face {
+      font-family: 'Public Sans';
+      font-style: normal;
+      font-weight: 400;
+      font-display: swap;
+      src: url(https://fonts.gstatic.com/s/publicsans/v21/ijwGs572Xtc6ZYQws9YVwllKVG8qX1oyOymuFpmJygcob18.woff2) format('woff2');
+      unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF
+  }
+
+  @font-face {
+      font-family: 'Public Sans';
+      font-style: normal;
+      font-weight: 400;
+      font-display: swap;
+      src: url(https://fonts.gstatic.com/s/publicsans/v21/ijwGs572Xtc6ZYQws9YVwllKVG8qX1oyOymuFpmJxAco.woff2) format('woff2');
+      unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD
+  }
+
+  @font-face {
+      font-family: 'Public Sans';
+      font-style: normal;
+      font-weight: 500;
+      font-display: swap;
+      src: url(https://fonts.gstatic.com/s/publicsans/v21/ijwGs572Xtc6ZYQws9YVwllKVG8qX1oyOymuJJmJywcob18.woff2) format('woff2');
+      unicode-range: U+0102-0103,U+0110-0111,U+0128-0129,U+0168-0169,U+01A0-01A1,U+01AF-01B0,U+0300-0301,U+0303-0304,U+0308-0309,U+0323,U+0329,U+1EA0-1EF9,U+20AB
+  }
+
+  @font-face {
+      font-family: 'Public Sans';
+      font-style: normal;
+      font-weight: 500;
+      font-display: swap;
+      src: url(https://fonts.gstatic.com/s/publicsans/v21/ijwGs572Xtc6ZYQws9YVwllKVG8qX1oyOymuJJmJygcob18.woff2) format('woff2');
+      unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF
+  }
+
+  @font-face {
+      font-family: 'Public Sans';
+      font-style: normal;
+      font-weight: 500;
+      font-display: swap;
+      src: url(https://fonts.gstatic.com/s/publicsans/v21/ijwGs572Xtc6ZYQws9YVwllKVG8qX1oyOymuJJmJxAco.woff2) format('woff2');
+      unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD
+  }
+
+  @font-face {
+      font-family: 'Public Sans';
+      font-style: normal;
+      font-weight: 600;
+      font-display: swap;
+      src: url(https://fonts.gstatic.com/s/publicsans/v21/ijwGs572Xtc6ZYQws9YVwllKVG8qX1oyOymuyJ6Jywcob18.woff2) format('woff2');
+      unicode-range: U+0102-0103,U+0110-0111,U+0128-0129,U+0168-0169,U+01A0-01A1,U+01AF-01B0,U+0300-0301,U+0303-0304,U+0308-0309,U+0323,U+0329,U+1EA0-1EF9,U+20AB
+  }
+
+  @font-face {
+      font-family: 'Public Sans';
+      font-style: normal;
+      font-weight: 600;
+      font-display: swap;
+      src: url(https://fonts.gstatic.com/s/publicsans/v21/ijwGs572Xtc6ZYQws9YVwllKVG8qX1oyOymuyJ6Jygcob18.woff2) format('woff2');
+      unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF
+  }
+
+  @font-face {
+      font-family: 'Public Sans';
+      font-style: normal;
+      font-weight: 600;
+      font-display: swap;
+      src: url(https://fonts.gstatic.com/s/publicsans/v21/ijwGs572Xtc6ZYQws9YVwllKVG8qX1oyOymuyJ6JxAco.woff2) format('woff2');
+      unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD
+  }
+
+  @font-face {
+      font-family: 'Public Sans';
+      font-style: normal;
+      font-weight: 700;
+      font-display: swap;
+      src: url(https://fonts.gstatic.com/s/publicsans/v21/ijwGs572Xtc6ZYQws9YVwllKVG8qX1oyOymu8Z6Jywcob18.woff2) format('woff2');
+      unicode-range: U+0102-0103,U+0110-0111,U+0128-0129,U+0168-0169,U+01A0-01A1,U+01AF-01B0,U+0300-0301,U+0303-0304,U+0308-0309,U+0323,U+0329,U+1EA0-1EF9,U+20AB
+  }
+
+  @font-face {
+      font-family: 'Public Sans';
+      font-style: normal;
+      font-weight: 700;
+      font-display: swap;
+      src: url(https://fonts.gstatic.com/s/publicsans/v21/ijwGs572Xtc6ZYQws9YVwllKVG8qX1oyOymu8Z6Jygcob18.woff2) format('woff2');
+      unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF
+  }
+
+  @font-face {
+      font-family: 'Public Sans';
+      font-style: normal;
+      font-weight: 700;
+      font-display: swap;
+      src: url(https://fonts.gstatic.com/s/publicsans/v21/ijwGs572Xtc6ZYQws9YVwllKVG8qX1oyOymu8Z6JxAco.woff2) format('woff2');
+      unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD
+  }
+
+  @font-face {
+      font-family: 'Public Sans';
+      font-style: normal;
+      font-weight: 800;
+      font-display: swap;
+      src: url(https://fonts.gstatic.com/s/publicsans/v21/ijwGs572Xtc6ZYQws9YVwllKVG8qX1oyOymulp6Jywcob18.woff2) format('woff2');
+      unicode-range: U+0102-0103,U+0110-0111,U+0128-0129,U+0168-0169,U+01A0-01A1,U+01AF-01B0,U+0300-0301,U+0303-0304,U+0308-0309,U+0323,U+0329,U+1EA0-1EF9,U+20AB
+  }
+
+  @font-face {
+      font-family: 'Public Sans';
+      font-style: normal;
+      font-weight: 800;
+      font-display: swap;
+      src: url(https://fonts.gstatic.com/s/publicsans/v21/ijwGs572Xtc6ZYQws9YVwllKVG8qX1oyOymulp6Jygcob18.woff2) format('woff2');
+      unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF
+  }
+
+  @font-face {
+      font-family: 'Public Sans';
+      font-style: normal;
+      font-weight: 800;
+      font-display: swap;
+      src: url(https://fonts.gstatic.com/s/publicsans/v21/ijwGs572Xtc6ZYQws9YVwllKVG8qX1oyOymulp6JxAco.woff2) format('woff2');
+      unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD
+  }
+
+  @font-face {
+      font-family: 'Public Sans';
+      font-style: normal;
+      font-weight: 900;
+      font-display: swap;
+      src: url(https://fonts.gstatic.com/s/publicsans/v21/ijwGs572Xtc6ZYQws9YVwllKVG8qX1oyOymuv56Jywcob18.woff2) format('woff2');
+      unicode-range: U+0102-0103,U+0110-0111,U+0128-0129,U+0168-0169,U+01A0-01A1,U+01AF-01B0,U+0300-0301,U+0303-0304,U+0308-0309,U+0323,U+0329,U+1EA0-1EF9,U+20AB
+  }
+
+  @font-face {
+      font-family: 'Public Sans';
+      font-style: normal;
+      font-weight: 900;
+      font-display: swap;
+      src: url(https://fonts.gstatic.com/s/publicsans/v21/ijwGs572Xtc6ZYQws9YVwllKVG8qX1oyOymuv56Jygcob18.woff2) format('woff2');
+      unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF
+  }
+
+  @font-face {
+      font-family: 'Public Sans';
+      font-style: normal;
+      font-weight: 900;
+      font-display: swap;
+      src: url(https://fonts.gstatic.com/s/publicsans/v21/ijwGs572Xtc6ZYQws9YVwllKVG8qX1oyOymuv56JxAco.woff2) format('woff2');
+      unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD
+  }
     :root {
-      --bg: #f8f7f4;
+      --bg: #fff;
       --surface: #ffffff;
       --text: #1a1a1a;
       --text-muted: #5c5c5c;
@@ -19,10 +718,12 @@
       --border: #e8e6e1;
       --error: #c62828;
       --error-soft: #ffebee;
+      --sidebar-bg: #2d2d2d;
+      --sidebar-card: #3a3a3a;
     }
     * { box-sizing: border-box; }
     body {
-      font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+      font-family: "Public Sans", system-ui, sans-serif;
       margin: 0;
       padding: 0;
       background: var(--bg);
@@ -30,39 +731,41 @@
       min-height: 100vh;
       line-height: 1.5;
     }
-    .page {
-      max-width: 560px;
-      margin: 0 auto;
-      padding: 48px 24px 64px;
+    h1, h2, h3, h4, h5, h6 {
+      font-family: Bricolage Grotesque, serif;
     }
-    .brand {
-      margin-bottom: 40px;
+    .layout {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      min-height: 100vh;
     }
-    .brand-name {
-      font-size: 1.5rem;
-      font-weight: 700;
-      letter-spacing: -0.02em;
-      color: var(--text);
+    @media (max-width: 900px) {
+      .layout { grid-template-columns: 1fr; }
     }
-    .brand-tagline {
-      font-size: 0.9rem;
-      color: var(--text-muted);
-      margin-top: 4px;
+    .main {
+      display: flex;
+      justify-content: center;
+      align-items: center;
     }
-    .card {
-      background: var(--surface);
-      border-radius: 16px;
-      padding: 32px;
-      box-shadow: 0 2px 24px rgba(0,0,0,.06);
-      border: 1px solid var(--border);
+
+    .inner-content {
+      padding: 48px 56px 64px;
+      max-width: 640px;
     }
-    .card-title {
-      font-size: 1.35rem;
+
+    .brand-icon {
+      width: 40px;
+      height: 40px;
+      margin-bottom: 32px;
+      color: var(--accent);
+    }
+    .main h1 {
+      font-size: 2.2rem;
       font-weight: 700;
       letter-spacing: -0.02em;
       margin: 0 0 8px;
     }
-    .card-desc {
+    .main-desc {
       font-size: 0.95rem;
       color: var(--text-muted);
       margin: 0 0 28px;
@@ -76,7 +779,7 @@
     }
     textarea {
       width: 100%;
-      min-height: 128px;
+      min-height: 140px;
       padding: 14px 16px;
       border: 1px solid var(--border);
       border-radius: 10px;
@@ -131,22 +834,33 @@
       align-items: center;
       gap: 8px;
       padding: 12px 20px;
-      background: var(--text);
-      color: var(--surface);
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
       border-radius: 10px;
       cursor: pointer;
-      font-weight: 600;
+      font-weight: 500;
       font-size: 0.9rem;
       font-family: inherit;
-      transition: background .2s, transform .1s;
+      transition: border-color .2s, background .2s;
     }
-    .file-btn:hover { background: #333; }
-    .file-btn:active { transform: scale(0.98); }
-    .file-btn::after { content: '→'; }
+    .file-btn:hover { border-color: var(--accent); background: var(--accent-soft); }
+    .file-btn svg { width: 18px; height: 18px; }
     .file-name {
       margin-top: 10px;
       font-size: 0.85rem;
       color: var(--text-muted);
+    }
+    .file-badges { margin-top: 12px; }
+    .file-badges span {
+      display: inline-block;
+      padding: 4px 10px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      margin: 0 4px 4px 0;
     }
     .submit-wrap { margin-top: 28px; }
     .submit {
@@ -154,24 +868,25 @@
       align-items: center;
       gap: 10px;
       padding: 14px 28px;
-      background: var(--accent);
-      color: #fff;
+      background: #e0e0e0;
+      color: #424242;
       border: none;
-      border-radius: 10px;
+      border-radius: 12px;
       font-size: 1rem;
       font-weight: 600;
       font-family: inherit;
       cursor: pointer;
       transition: background .2s, transform .1s;
     }
-    .submit:hover { background: var(--accent-hover); }
+    .submit:hover { background: #d0d0d0; }
     .submit:active { transform: scale(0.98); }
     .submit:disabled {
-      background: #9e9e9e;
+      background: #bdbdbd;
+      color: #757575;
       cursor: not-allowed;
       transform: none;
     }
-    .submit::after { content: '→'; }
+    .submit svg { width: 20px; height: 20px; }
     .error {
       margin-top: 16px;
       padding: 14px 16px;
@@ -180,40 +895,201 @@
       border-radius: 10px;
       font-size: 0.9rem;
     }
+    @keyframes sidebar-bg-float {
+      0%, 100% { background-position: 50% 50%; }
+      33% { background-position: 65% 35%; }
+      66% { background-position: 35% 80%; }
+    }
+    @keyframes sidebar-banner-float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-8px); }
+    }
+    .sidebar {
+      background: black;
+      background-image: url(https://about-us.be/wp-content/uploads/2024/10/us-swirl-square-transparent.gif);
+      background-size: 20%;
+      background-repeat: no-repeat;
+      background-position: 50% 50%;
+      animation: sidebar-bg-float 22s ease-in-out infinite;
+      border-radius: 24px 0 0 24px;
+      padding: 40px 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+    .sidebar-banner {
+      animation: sidebar-banner-float 4s ease-in-out infinite;
+    }
+    @media (max-width: 900px) {
+      .sidebar { border-radius: 0; padding: 32px 24px; }
+    }
+    .sidebar-banner h2 {
+      transform: rotate(5deg);
+      text-align: center;
+      font-size: clamp(2rem, 4vw, 3rem);
+      line-height: 1.33;
+    }
+    .sidebar-banner h2 > span {
+      position: relative;
+      display: inline-block;
+      background: #BDB4FF;
+      padding: 0.35em;
+      line-height: 0.7;
+      font-weight: 800;
+      border-radius: 0.51913rem 0.51913rem 0 0;
+    }
+
+    .sidebar-banner h2 > span:first-child::before,
+    .sidebar-banner h2 > span:first-child::after,
+    .sidebar-banner h2 > span:last-child::after {
+      content: "";
+        position: absolute;
+        bottom: 0em;
+        display: block;
+        width: 0.4em;
+        height: 0.4em;
+        transform: rotate(3deg);
+    }
+    .sidebar-banner h2 > span:last-child::after{
+        right: unset;
+        bottom: unset;
+        left: -0.34em;
+        top: 0em;
+        transform: rotate(183deg);
+    }
+
+    .sidebar-banner h2 > span:last-child {
+      top: -.1em;
+      border-radius: 0.51913rem;
+    }
+    .sidebar-banner h2 > span:first-child {
+      font-size: .8em;
+      border-radius: 0.51913rem 0.51913rem 0 0;
+    }
+    .sidebar-banner h2 > span:first-child::after {
+      bottom: 0;
+      right: -0.34em;
+    }
+    .sidebar-banner h2 > span:last-child::after {
+      display: none;
+    }
+
+    .sidebar-banner h2 > span:first-child::before {
+      /* left: -0.35em; */
+        left: -0.3em;
+        bottom: 0;
+        transform: rotate(269.5deg);
+    }
+
+    .sidebar-banner h2 > span:first-child::before, 
+    .sidebar-banner h2 > span:first-child::after, 
+    .sidebar-banner h2 > span:last-child::before {
+      background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='9' viewBox='0 0 10 9' fill='none'%3E%3Cpath d='M0.49231 0.0666504L1.07167 8.35194L9.35696 7.77257C4.78182 8.0925 0.812234 4.64179 0.49231 0.0666504Z' fill='%23BDB4FF'/%3E%3C/svg%3E") no-repeat bottom left transparent;
+      background-size: contain;
+    }
+
+
+    .sidebar-card {
+      background: rgba(255, 255, 255, 0.3);
+      border-radius: 16px;
+      box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+      backdrop-filter: blur(6.1px);
+      -webkit-backdrop-filter: blur(6.1px);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      padding: 3rem 4rem;
+      margin-top: auto;
+      max-width: 35rem;
+    }
+    .sidebar-card h2 {
+      color: #fff;
+      font-size: 3.05rem;
+      line-height: 1.1;
+      font-weight: 700;
+      margin: 0 0 12px;
+      letter-spacing: -0.02em;
+    }
+    .sidebar-card p {
+      color: rgba(255, 255, 255, 0.9);
+      font-size: 1.55rem;
+      margin: 0 0 20px;
+      line-height: 1.6;
+    }
+    .sidebar-card strong { color: #fff; }
+    .sidebar-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 20px;
+      background: #fff;
+      color: var(--sidebar-bg);
+      border: none;
+      border-radius: 10px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      text-decoration: none;
+      transition: opacity .2s;
+    }
+    .sidebar-btn:hover { opacity: 0.9; }
+    .sidebar-btn svg { width: 18px; height: 18px; }
   </style>
 </head>
 <body>
-  <div class="page">
-    <header class="brand">
-      <div class="brand-name">Us</div>
-      <div class="brand-tagline">Accessibility audit · Clear goals, combined strengths</div>
-    </header>
-
-    <main class="card">
-      <h1 class="card-title">Run an accessibility audit</h1>
-      <p class="card-desc">Add URLs or upload a CSV/XML file. Results open in a new page with a unique link.</p>
-
-      <form id="form">
-        <label for="urls">URLs (one per line or comma-separated)</label>
-        <textarea id="urls" name="urls" placeholder="https://example.com&#10;https://example.com/about&#10;https://example.com/contact"></textarea>
-        <p class="hint">Use full URLs including https://</p>
-
-        <div class="divider"><span>or upload a file</span></div>
-
-        <label>CSV or XML file</label>
-        <div class="file-wrap">
-          <input type="file" id="file" name="file" accept=".csv,.xml,.txt">
-          <label for="file" class="file-btn">Choose file</label>
-          <p class="file-name" id="file-name">No file selected</p>
+  <div class="layout">
+    <main class="main">
+      <section class="inner-content">
+        <div class="brand-icon" aria-hidden="true">
+          <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M21.5836 1.47087C22.5977 -0.490291 25.4023 -0.490291 26.4163 1.47087L32.8735 13.9595C33.1322 14.4599 33.54 14.8677 34.0406 15.1264L46.529 21.5836C48.4903 22.5977 48.4903 25.4023 46.529 26.4163L34.0406 32.8735C33.54 33.1322 33.1322 33.54 32.8735 34.0406L26.4163 46.529C25.4023 48.4903 22.5977 48.4903 21.5836 46.529L15.1264 34.0406C14.8677 33.54 14.4599 33.1322 13.9595 32.8735L1.47087 26.4163C-0.490291 25.4023 -0.490291 22.5977 1.47087 21.5836L13.9595 15.1264C14.4599 14.8677 14.8677 14.4599 15.1264 13.9595L21.5836 1.47087Z" fill="#8DFFB7"/>
+          </svg>
         </div>
-        <p class="hint">CSV: URLs in any column. XML: &lt;loc&gt; or &lt;url&gt; (e.g. sitemap).</p>
+        <h1>Run an accessibility Audit</h1>
+        <p class="main-desc">Add URLs or upload a CSV/XML file. Results open in a new page with a unique link.</p>
 
-        <div class="submit-wrap">
-          <button type="submit" class="submit" id="submit">Run accessibility tests</button>
-        </div>
-        <div id="error" class="error" style="display:none;"></div>
-      </form>
+        <form id="form">
+          <label for="urls">URLs (one per line or comma-separated)</label>
+          <textarea id="urls" name="urls" placeholder="https://www.example.com&#10;https://www.example.com/about&#10;https://www.example.com/contact"></textarea>
+          <p class="hint">Use full URLs including https://</p>
+
+          <div class="divider"><span>or upload a file</span></div>
+
+          <label>URLs (one per line or comma-separated)</label>
+          <div class="file-wrap">
+            <div class="file-badges"><span>.CSV</span><span>.XML</span></div>
+            <input type="file" id="file" name="file" accept=".csv,.xml,.txt">
+            <label for="file" class="file-btn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+              Choose file
+            </label>
+            <p class="file-name" id="file-name">No file selected</p>
+          </div>
+          <p class="hint">CSV: URLs in any column. XML: &lt;loc&gt; or &lt;url&gt; (e.g. sitemap).</p>
+
+          <div class="submit-wrap">
+            <button type="submit" class="submit" id="submit">
+              Run accessibility tests
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </button>
+          </div>
+          <div id="error" class="error" style="display:none;"></div>
+        </form>
+      </section>
     </main>
+
+    <aside class="sidebar">
+      <div class="sidebar-banner">
+        <h2 style="text-align: center;">
+          <span>co-creating</span><br>
+          <span>digital impact</span>
+        </h2>
+      </div>
+      <div class="sidebar-card">
+        <h2>About the Accessibility Audit</h2>
+        <p>Learn how this tool helps you detect <strong>accessibility issues</strong> and improve your digital experience.</p>
+        <a href="https://about-us.be/wcag/" target="_blank" class="sidebar-btn" id="read-more">Read more <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg></a>
+      </div>
+    </aside>
   </div>
 
   <script>
@@ -225,6 +1101,11 @@
 
     fileInput.addEventListener('change', () => {
       fileName.textContent = fileInput.files[0]?.name || 'No file selected';
+    });
+
+    document.getElementById('read-more').addEventListener('click', (e) => {
+      e.preventDefault();
+      document.querySelector('.main h1').scrollIntoView({ behavior: 'smooth' });
     });
 
     form.addEventListener('submit', async (e) => {

@@ -276,11 +276,59 @@ app.put('/api/report/:id/manual-progress', async (req, res) => {
   }
 });
 
+function serveReportFile(id, filename) {
+  const filePath = join(REPORTS_BASE, id, filename);
+  if (existsSync(filePath)) {
+    return readFileSync(filePath, 'utf8');
+  }
+  return null;
+}
+
+const DELIVERABLE_FILES = ['accessibility-developers.html', 'accessibility-client.html', 'accessibility-statement.html'];
+
+app.get('/report/:id/screenshots/:file', (req, res) => {
+  const { id, file } = req.params;
+  const safeName = file.replace(/[^a-zA-Z0-9._-]/g, '');
+  const filePath = join(REPORTS_BASE, id, 'screenshots', safeName);
+  if (existsSync(filePath)) {
+    res.sendFile(filePath);
+    return;
+  }
+  res.status(404).send('Not found');
+});
+
+app.get('/report/:id/:file', (req, res) => {
+  const { id, file } = req.params;
+  if (DELIVERABLE_FILES.includes(file)) {
+    const html = serveReportFile(id, file);
+    if (html) {
+      res.setHeader('Content-Type', 'text/html');
+      return res.send(html);
+    }
+  }
+  const reportPath = join(REPORTS_BASE, id, 'accessibility-report.html');
+  if (existsSync(reportPath)) {
+    return res.redirect(`/report/${id}`);
+  }
+  res.status(404).send(`
+    <!DOCTYPE html>
+    <html><head><title>Report Not Found</title></head>
+    <body style="font-family:sans-serif;padding:2rem;text-align:center;">
+      <h1>Report not found</h1>
+      <p>Run ID: ${id}</p>
+      <p><a href="/">Start a new test</a></p>
+    </body></html>
+  `);
+});
+
 app.get('/report/:id', (req, res) => {
   const id = req.params.id;
   const reportPath = join(REPORTS_BASE, id, 'accessibility-report.html');
 
   if (existsSync(reportPath)) {
+    if (!req.path.endsWith('/')) {
+      return res.redirect(301, `/report/${id}/`);
+    }
     const html = readFileSync(reportPath, 'utf8');
     res.setHeader('Content-Type', 'text/html');
     res.send(html);
@@ -301,6 +349,17 @@ app.get('/report/:id', (req, res) => {
       <p><a href="/">Start a new test</a></p>
     </body></html>
   `);
+});
+
+app.get('/report/:id/', (req, res) => {
+  const id = req.params.id;
+  const reportPath = join(REPORTS_BASE, id, 'accessibility-report.html');
+  if (existsSync(reportPath)) {
+    const html = readFileSync(reportPath, 'utf8');
+    res.setHeader('Content-Type', 'text/html');
+    return res.send(html);
+  }
+  res.redirect(`/report/${id}`);
 });
 
 app.get('/', (req, res) => {

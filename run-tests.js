@@ -160,7 +160,14 @@ async function main() {
     axeResults: {},
     customResults: [],
     summary: { pass: 0, fail: 0, warn: 0 },
+    screenshots: {},
   };
+
+  const SCREENSHOTS_DIR = join(OUTPUT_DIR, 'screenshots');
+  const VIEWPORTS = [
+    { width: 1366, height: 768, label: 'Laptop', suffix: 'laptop' },
+    { width: 1920, height: 1080, label: 'Desktop', suffix: 'desktop' },
+  ];
 
   const browser = await chromium.launch({
     headless: true,
@@ -171,7 +178,8 @@ async function main() {
     for (const url of urls) {
       console.log(`\nTesting: ${url}`);
       const context = await browser.newContext({
-        userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        viewport: { width: VIEWPORTS[0].width, height: VIEWPORTS[0].height },
       });
       const page = await context.newPage();
 
@@ -191,6 +199,29 @@ async function main() {
           else if (r.status === 'fail') report.summary.fail++;
           else report.summary.warn++;
         });
+
+        const hasIssues =
+          (axeData.violations && axeData.violations.length > 0) ||
+          customData.some((r) => r.status === 'fail' || r.status === 'warn');
+        if (hasIssues) {
+          if (!existsSync(SCREENSHOTS_DIR)) mkdirSync(SCREENSHOTS_DIR, { recursive: true });
+          const urlIndex = report.urls.length - 1;
+          const screenshotsForUrl = [];
+          for (const vp of VIEWPORTS) {
+            try {
+              await page.setViewportSize({ width: vp.width, height: vp.height });
+              const screenshotFile = `screenshot-${urlIndex}-${vp.suffix}.png`;
+              const screenshotPath = join(SCREENSHOTS_DIR, screenshotFile);
+              await page.screenshot({ path: screenshotPath, fullPage: false });
+              screenshotsForUrl.push({ file: screenshotFile, label: `${vp.label} (${vp.width}×${vp.height})` });
+            } catch (e) {
+              console.error(`  Screenshot ${vp.suffix} failed: ${e.message}`);
+            }
+          }
+          if (screenshotsForUrl.length > 0) {
+            report.screenshots[url] = screenshotsForUrl;
+          }
+        }
       } catch (err) {
         console.error(`  Error: ${err.message}`);
         report.customResults.push({

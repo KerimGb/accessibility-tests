@@ -9,14 +9,14 @@
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg: #f8f7f4;
-      --surface: #ffffff;
-      --text: #1a1a1a;
-      --text-muted: #5c5c5c;
+      --bg: #1e1e1e;
+      --card-bg: #2a2a2a;
+      --text: #ffffff;
+      --text-muted: #b0b0b0;
       --accent: #2d9d78;
-      --border: #e8e6e1;
-      --error: #c62828;
-      --error-soft: #ffebee;
+      --border: #404040;
+      --error: #ef5350;
+      --error-soft: rgba(239, 83, 80, 0.15);
     }
     * { box-sizing: border-box; }
     body {
@@ -31,42 +31,60 @@
       justify-content: center;
     }
     .card {
-      background: var(--surface);
-      border-radius: 16px;
-      padding: 48px;
-      text-align: center;
-      max-width: 400px;
+      background: var(--card-bg);
+      border-radius: 20px;
+      overflow: hidden;
+      max-width: 480px;
       width: 100%;
-      box-shadow: 0 2px 24px rgba(0,0,0,.06);
-      border: 1px solid var(--border);
+      text-align: center;
     }
-    .spinner {
-      width: 48px;
-      height: 48px;
-      border: 3px solid var(--border);
-      border-top-color: var(--accent);
-      border-radius: 50%;
-      margin: 0 auto 24px;
-      animation: spin 0.9s linear infinite;
+    .banner {
+      width: 100%;
+      aspect-ratio: 2 / 1;
+      object-fit: cover;
+      background: linear-gradient(135deg, #3a3a3a 0%, #2d2d2d 100%);
+      display: block;
     }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    .card h1 { margin: 0 0 8px; font-size: 1.25rem; font-weight: 700; letter-spacing: -0.02em; }
-    .card p { margin: 0; color: var(--text-muted); font-size: 0.95rem; }
-    .progress-wrap { margin-top: 28px; text-align: left; }
+    .content {
+      padding: 32px 40px 40px;
+    }
+    .card h1 {
+      margin: 0 0 8px;
+      font-size: 1.35rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: var(--text);
+    }
+    .card .sub {
+      font-size: 0.95rem;
+      color: var(--text-muted);
+      margin: 0 0 28px;
+    }
+    .progress-wrap {
+      text-align: left;
+    }
+    .progress-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+      font-size: 0.9rem;
+    }
+    .progress-header .pct { color: var(--text); font-weight: 600; }
+    .progress-header .remaining { color: var(--text-muted); }
     .progress-bar {
-      height: 8px;
+      height: 10px;
       background: var(--border);
-      border-radius: 4px;
+      border-radius: 5px;
       overflow: hidden;
     }
     .progress-fill {
       height: 100%;
       background: var(--accent);
-      border-radius: 4px;
+      border-radius: 5px;
       transition: width 0.3s ease;
       width: 0%;
     }
-    .progress-text { font-size: 0.85rem; color: var(--text-muted); margin-top: 10px; }
     .error {
       margin-top: 20px;
       padding: 14px 16px;
@@ -76,20 +94,23 @@
       font-size: 0.9rem;
       text-align: left;
     }
-    .brand { font-size: 0.85rem; color: var(--text-muted); margin-top: 24px; }
   </style>
 </head>
 <body>
   <div class="card">
-    <div class="spinner" id="spinner"></div>
-    <h1 id="title">Running accessibility tests…</h1>
-    <p id="msg">This may take a few minutes depending on the number of URLs.</p>
-    <div class="progress-wrap" id="progress-wrap">
-      <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
-      <p class="progress-text" id="progress-text"></p>
+    <img class="banner" id="banner" src="assets/loading-banner.png" alt="" />
+    <div class="content">
+      <h1 id="title">Running Accessibility tests...</h1>
+      <p class="sub" id="msg">This may take a few minutes depending on the number of URL's</p>
+      <div class="progress-wrap" id="progress-wrap">
+        <div class="progress-header">
+          <span class="pct" id="pct-text">0% completed</span>
+          <span class="remaining" id="remaining-text">—</span>
+        </div>
+        <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+      </div>
+      <div id="error" class="error" style="display:none;"></div>
     </div>
-    <div id="error" class="error" style="display:none;"></div>
-    <p class="brand">Us · Accessibility audit</p>
   </div>
 
   <script>
@@ -99,13 +120,25 @@
     if (!id) {
       document.getElementById('title').textContent = 'Missing run ID';
       document.getElementById('msg').textContent = 'Go back and submit the form again.';
-      document.getElementById('spinner').style.display = 'none';
+      document.getElementById('progress-wrap').style.display = 'none';
     } else {
       const AVG_SECONDS_PER_PAGE = 45;
       const startTime = Date.now();
       const fillEl = document.getElementById('progress-fill');
-      const textEl = document.getElementById('progress-text');
+      const pctEl = document.getElementById('pct-text');
+      const remainingEl = document.getElementById('remaining-text');
       let urlCount = parseInt(params.get('urls'), 10) || 0;
+
+      document.getElementById('banner').onerror = function() {
+        this.style.display = 'none';
+      };
+
+      const formatRemaining = (seconds) => {
+        if (seconds <= 0) return 'Almost there…';
+        if (seconds < 60) return `${seconds}s remaining`;
+        const min = Math.ceil(seconds / 60);
+        return `${min}min remaining`;
+      };
 
       const updateProgress = (count) => {
         if (count != null) urlCount = count;
@@ -114,11 +147,9 @@
         const estimatedTotal = numPages * AVG_SECONDS_PER_PAGE;
         const pct = Math.min(95, Math.round((elapsed / estimatedTotal) * 100));
         fillEl.style.width = pct + '%';
+        pctEl.textContent = pct + '% completed';
         const remaining = Math.max(0, Math.ceil(estimatedTotal - elapsed));
-        const timeText = remaining > 0
-          ? `Estimated ${remaining}s remaining`
-          : 'Still processing…';
-        textEl.textContent = `${timeText} · ${numPages} page${numPages !== 1 ? 's' : ''}`;
+        remainingEl.textContent = formatRemaining(remaining);
       };
 
       const progressInterval = setInterval(updateProgress, 1000);
@@ -134,13 +165,14 @@
           if (data.status === 'done') {
             clearInterval(progressInterval);
             fillEl.style.width = '100%';
-            textEl.textContent = 'Done! Loading report…';
-            window.location.replace(`/report/${id}`);
+            pctEl.textContent = '100% completed';
+            remainingEl.textContent = 'Done!';
+            document.getElementById('msg').textContent = 'Loading report…';
+            window.location.replace(`/report/${id}/`);
             return;
           }
           if (data.status === 'error') {
             clearInterval(progressInterval);
-            document.getElementById('spinner').style.display = 'none';
             document.getElementById('progress-wrap').style.display = 'none';
             document.getElementById('title').textContent = 'Test failed';
             document.getElementById('msg').textContent = '';
@@ -151,7 +183,6 @@
           }
         } catch (e) {
           clearInterval(progressInterval);
-          document.getElementById('spinner').style.display = 'none';
           document.getElementById('progress-wrap').style.display = 'none';
           document.getElementById('title').textContent = 'Connection error';
           document.getElementById('error').textContent = e.message;

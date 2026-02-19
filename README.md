@@ -78,6 +78,11 @@ npm run report
 
 - **`reports/accessibility-results.json`** – Raw test results (axe violations + custom checks)
 - **`reports/accessibility-report.html`** – Client-ready HTML report
+- **`reports/accessibility-developers.html`** – Developer guide (issues + fix snippets)
+- **`reports/accessibility-client.html`** – Client presentation (stats + phased plan)
+- **`reports/accessibility-statement.html`** – Draft accessibility statement (customize before publishing)
+
+Each report includes links to these deliverables. When served by the web server, open the report at `/report/{id}/` (trailing slash required for relative links to work), then use the links in the header to open each deliverable.
 
 ## What is tested
 

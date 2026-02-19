@@ -10,9 +10,9 @@ import {
   getRemediation,
   wcagScUrl,
   fixOrderScore,
-  IMPACT_ORDER,
-  EFFORT_ORDER,
 } from './remediation-data.js';
+import { generateAllDeliverables } from './generate-deliverables.js';
+import { SEMANTIC_CHECKLIST_WCAG22 } from './checklists.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DEFAULT_OUTPUT_DIR = join(__dirname, 'reports');
@@ -344,6 +344,22 @@ export function generateReport(reportData, options = {}) {
     .comparison-section .regressed { color: var(--fail); }
     .suggested-fixes { padding: 20px 32px; background: #f0f7f4; border-top: 1px solid var(--border); }
     .suggested-fixes h3 { margin: 0 0 12px; font-size: 1rem; }
+    .checklist-ref { margin: 16px 0; font-size: 0.9rem; }
+    .checklist-ref summary { cursor: pointer; font-weight: 600; padding: 10px 12px; background: var(--bg); border-radius: 8px; }
+    .checklist-ref summary:hover { background: #ecebe8; }
+    .checklist-ref .checklist-body { padding: 16px 0 0 12px; }
+    .checklist-ref .checklist-section { margin-bottom: 20px; }
+    .checklist-ref .checklist-section h4 { margin: 0 0 8px; font-size: 0.95rem; }
+    .checklist-ref .checklist-section h5 { margin: 12px 0 6px; font-size: 0.85rem; color: var(--text-muted); }
+    .checklist-ref .checklist-section ul { margin: 0 0 8px; padding-left: 20px; }
+    .checklist-ref .checklist-section li { margin-bottom: 4px; }
+    .checklist-ref a { color: var(--accent); }
+    .screenshot-wrap { margin: 12px 0 20px; }
+    .screenshot-wrap .screenshot-caption { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 10px; }
+    .screenshot-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+    .screenshot-wrap .screenshot-fig { margin: 0; }
+    .screenshot-wrap .screenshot-fig img { width: 100%; height: auto; border-radius: 8px; border: 1px solid var(--border); box-shadow: 0 2px 8px rgba(0,0,0,.06); display: block; }
+    .screenshot-wrap .screenshot-fig figcaption { font-size: 0.8rem; color: var(--text-muted); margin-top: 6px; }
     @media print { .sticky-bar { position: static; } .filter-row, .disability-stats, .btn-pdf, .remediation-btns, .summary-item.filter-btn { display: none !important; } }
   </style>
 </head>
@@ -356,7 +372,13 @@ export function generateReport(reportData, options = {}) {
           <h1>Accessibility audit report</h1>
           <p class="timestamp">Deque University checklists · Generated ${new Date(reportData.generatedAt).toLocaleString()}</p>
         </div>
-        <button type="button" class="btn-pdf" onclick="window.print()" aria-label="Download as PDF">Download PDF</button>
+        <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+          <button type="button" class="btn-pdf" onclick="window.print()" aria-label="Download as PDF">Download PDF</button>
+          <span style="font-size:0.85rem; color:var(--text-muted);">Deliverables:</span>
+          <a href="./accessibility-developers.html" style="font-size:0.9rem;">Developer guide</a>
+          <a href="./accessibility-client.html" style="font-size:0.9rem;">Client presentation</a>
+          <a href="./accessibility-statement.html" style="font-size:0.9rem;">Accessibility statement</a>
+        </div>
       </div>
     </header>
 
@@ -416,14 +438,51 @@ export function generateReport(reportData, options = {}) {
     <section>
 `;
 
+  const SEMANTIC_WCAG22_PDF = 'https://media.dequeuniversity.com/en/courses/generic/web-semantic-structure-and-navigation/wcag-2.2/docs/module-semantic-checklist-wcag-2.2.pdf';
+
   Object.entries(CHECKLIST_CHAPTERS).forEach(([chapterId, ch]) => {
     html += `
       <h2 id="ch${ch.id}">Chapter ${ch.id}: ${ch.name}</h2>
 `;
+    if (chapterId === 'semantics') {
+      html += `
+      <details class="checklist-ref">
+        <summary>View Semantic Structure checklist (WCAG 2.2)</summary>
+        <div class="checklist-body">
+          <p><a href="${SEMANTIC_WCAG22_PDF}" target="_blank" rel="noopener">Download PDF</a></p>
+          ${SEMANTIC_CHECKLIST_WCAG22.map(
+            (s) => `
+          <div class="checklist-section">
+            <h4>${escapeHtml(s.section)}</h4>
+            ${s.subsections
+              .map(
+                (sub) => `
+            ${sub.title ? `<h5>${escapeHtml(sub.title)}</h5>` : ''}
+            <ul>
+              ${sub.items.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}
+            </ul>`
+              )
+              .join('')}
+          </div>`
+          ).join('')}
+        </div>
+      </details>
+`;
+    }
 
     if (reportData.urls?.length > 0) {
       reportData.urls.forEach((url) => {
         html += `<div class="url-section"><h3>${escapeHtml(url)}</h3>`;
+        const screenshotData = reportData.screenshots && reportData.screenshots[url];
+        const showScreenshots = chapterId === Object.keys(CHECKLIST_CHAPTERS)[0] && screenshotData;
+        if (showScreenshots) {
+          const items = Array.isArray(screenshotData) ? screenshotData : [{ file: screenshotData, label: 'Screenshot' }];
+          html += '<div class="screenshot-wrap"><p class="screenshot-caption">Viewport screenshots (desktop) when issues were found:</p><div class="screenshot-grid">';
+          items.forEach((s) => {
+            html += `<figure class="screenshot-fig"><img src="./screenshots/${escapeHtml(s.file)}" alt="${escapeHtml(s.label || 'Screenshot')}" loading="lazy" /><figcaption>${escapeHtml(s.label || '')}</figcaption></figure>`;
+          });
+          html += '</div></div>';
+        }
 
         const custom = customByChapter[chapterId]?.filter((r) => r.url === url) || [];
         const axeData = reportData.axeResults?.[url];
@@ -718,6 +777,28 @@ export function generateReport(reportData, options = {}) {
 
   if (!existsSync(outputDir)) mkdirSync(outputDir, { recursive: true });
   writeFileSync(reportFile, html, 'utf8');
+
+  const deliverableData = {
+    reportData,
+    fixOrderItems,
+    disabilityStats,
+    score,
+    scoreClamp,
+    pass,
+    fail,
+    warn,
+    totalAxeViolations,
+    total,
+  };
+  try {
+    const paths = generateAllDeliverables(deliverableData, outputDir);
+    if (options.verbose) {
+      console.log('Deliverables:', paths);
+    }
+  } catch (err) {
+    if (options.verbose) console.error('Deliverable generation:', err);
+  }
+
   return reportFile;
 }
 
