@@ -38,6 +38,23 @@ Then open http://localhost:3456 (or the port shown). You can:
 
 Each report has a unique ID in the URL, e.g. `http://localhost:3456/report/a1b2c3d4`
 
+### Live / production deployment
+
+The app **requires the Node server** to be running. Uploading only the `public/` folder (e.g. via FTP) is not enough: `/api/run` and `/api/status/:id` are handled by the server. If the server is not running, the form will show: *"API not available: the server returned a page instead of JSON..."*.
+
+- **On your host:** Run `npm install`, then `npm start` (or run `node server.js` in a process manager), and ensure the port is reachable (or put a reverse proxy in front that forwards requests to Node).
+- **If the app is under a subpath** (e.g. `https://example.com/accessibility/`): Add this inside `<head>` in both `public/index.html` and `public/loading.html`:
+  ```html
+  <meta name="accessibility-app-base" content="/accessibility">
+  ```
+  Replace `/accessibility` with your actual base path (no trailing slash). This makes API and report URLs use that path.
+
+- **Frontend on one host, API on Render** (e.g. form at `https://wcag.about-us.be/`, API at `https://accessibility-tests.onrender.com`): You do **not** run `npm install` / `npm start` yourself — Render runs the app when you deploy (via your Dockerfile or Build/Start commands). In the **copy of `index.html`** that you host on wcag.about-us.be, add inside `<head>`:
+  ```html
+  <meta name="accessibility-app-base" content="https://accessibility-tests.onrender.com">
+  ```
+  Use your real Render service URL. Then the form will post to Render, and after submit users are redirected to Render for the loading page and report. The server allows cross-origin requests by default, so the form on wcag.about-us.be can call the Render API.
+
 ### Optional: store manual checklist progress on FTP
 
 To persist the manual/assistive-tech checklist state on your FTP server (e.g. Combell), set these environment variables before starting the server:

@@ -114,6 +114,12 @@
   </div>
 
   <script>
+    (function () {
+      var meta = document.querySelector('meta[name="accessibility-app-base"]');
+      window.ACCESSIBILITY_APP_BASE = (meta && meta.getAttribute('content')) ? (meta.getAttribute('content').replace(/\/$/, '')) : '';
+    })();
+    var APP_BASE = window.ACCESSIBILITY_APP_BASE || '';
+
     const params = new URLSearchParams(window.location.search);
     const id = params.get('id');
 
@@ -157,12 +163,12 @@
       const poll = async () => {
         try {
           updateProgress();
-          const res = await fetch(`/api/status/${id}`);
+          const res = await fetch(APP_BASE + '/api/status/' + id);
           const contentType = res.headers.get('content-type') || '';
           if (!contentType.includes('application/json')) {
             const text = await res.text();
             if (text.trim().startsWith('<')) {
-              throw new Error('The server returned a web page instead of data. The accessibility app must run with the Node server (e.g. npm start), not as static files only.');
+              throw new Error('API not available: the server returned a page instead of JSON. Run the Node server (npm start) on the host that serves this app and ensure /api requests reach it (no static-only hosting).');
             }
             throw new Error(text || 'Invalid response');
           }
@@ -176,7 +182,7 @@
             pctEl.textContent = '100% completed';
             remainingEl.textContent = 'Done!';
             document.getElementById('msg').textContent = 'Loading report…';
-            window.location.replace(`/report/${id}/`);
+            window.location.replace(APP_BASE + '/report/' + id + '/');
             return;
           }
           if (data.status === 'error') {

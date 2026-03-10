@@ -325,9 +325,13 @@ export function generateReport(reportData, options = {}) {
     section h2.has-visible { display: block; }
     .remediation { margin-top: 8px; font-size: 0.85rem; }
     .remediation pre { margin: 8px 0; padding: 10px; background: #1e1e1e; color: #d4d4d4; border-radius: 6px; overflow-x: auto; white-space: pre-wrap; }
-    .remediation-btns { display: flex; gap: 8px; margin-top: 6px; }
-    .remediation-btns button, .btn-show-fix, .btn-copy-fix { padding: 6px 12px; font-size: 0.8rem; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); cursor: pointer; }
+    .remediation-btns { display: flex; gap: 8px; margin-top: 6px; flex-wrap: wrap; }
+    .remediation-btns button, .btn-show-fix, .btn-copy-fix, .btn-show-occurrences { padding: 6px 12px; font-size: 0.8rem; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); cursor: pointer; }
     .remediation-btns button:hover { background: var(--bg); }
+    .occurrences { margin-top: 8px; font-size: 0.85rem; }
+    .occurrences .occurrence-item { margin-bottom: 12px; padding: 10px; background: #f5f5f5; border-radius: 6px; border-left: 3px solid var(--accent); }
+    .occurrences .occurrence-item .selector { font-family: monospace; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 6px; word-break: break-all; }
+    .occurrences .occurrence-item pre { margin: 0; padding: 8px; background: #1e1e1e; color: #d4d4d4; border-radius: 4px; overflow-x: auto; white-space: pre-wrap; font-size: 0.75rem; }
     .wcag-links { font-size: 0.8rem; margin-top: 4px; }
     .wcag-links a { color: var(--accent); }
     .impact-effort { display: flex; gap: 6px; margin-top: 4px; flex-wrap: wrap; }
@@ -360,7 +364,7 @@ export function generateReport(reportData, options = {}) {
     .screenshot-wrap .screenshot-fig { margin: 0; }
     .screenshot-wrap .screenshot-fig img { width: 100%; height: auto; border-radius: 8px; border: 1px solid var(--border); box-shadow: 0 2px 8px rgba(0,0,0,.06); display: block; }
     .screenshot-wrap .screenshot-fig figcaption { font-size: 0.8rem; color: var(--text-muted); margin-top: 6px; }
-    @media print { .sticky-bar { position: static; } .filter-row, .disability-stats, .btn-pdf, .remediation-btns, .summary-item.filter-btn { display: none !important; } }
+    @media print { .sticky-bar { position: static; } .filter-row, .disability-stats, .btn-pdf, .remediation-btns, .btn-show-occurrences, .summary-item.filter-btn { display: none !important; } .occurrences[hidden] { display: none !important; } }
   </style>
 </head>
 <body>
@@ -501,6 +505,8 @@ export function generateReport(reportData, options = {}) {
             const wcagLinks = (rem.wcag || []).map((sc) => `<a href="${wcagScUrl(sc)}" target="_blank" rel="noopener">${sc}</a>`).join(', ');
             const snippetEsc = escapeHtml(rem.snippet || '');
             const rowId = `fix-row-${chapterId}-${url.replace(/[^a-z0-9]/gi, '')}-${idx}`;
+            const occId = `occ-row-${chapterId}-${url.replace(/[^a-z0-9]/gi, '')}-${idx}`;
+            const occContent = r.selector ? `<div class="occurrence-item"><span class="selector">${escapeHtml(r.selector)}</span>${r.nodeHtml ? `<pre>${escapeHtml(r.nodeHtml)}</pre>` : ''}</div>` : '<p class="occurrence-item">No element details for this check.</p>';
             html += `<tr class="filterable" data-filter="${filterVal}" data-disability="${escapeHtml(disabilities)}">
               <td>${escapeHtml(r.rule)}</td>
               <td><span class="badge ${r.status}">${r.status}</span></td>
@@ -511,10 +517,12 @@ export function generateReport(reportData, options = {}) {
               <td>
                 <button type="button" class="btn-show-fix" data-target="${rowId}" aria-expanded="false">Show fix</button>
                 <button type="button" class="btn-copy-fix" data-snippet="${snippetEsc}" title="Copy fix">Copy fix</button>
+                <button type="button" class="btn-show-occurrences" data-target="${occId}" aria-expanded="false">Show occurrences</button>
                 <div id="${rowId}" class="remediation" hidden>
                   ${wcagLinks ? `<div class="wcag-links">WCAG: ${wcagLinks}</div>` : ''}
                   <pre>${snippetEsc}</pre>
                 </div>
+                <div id="${occId}" class="occurrences" hidden>${occContent}</div>
               </td>
             </tr>`;
           });
@@ -526,6 +534,15 @@ export function generateReport(reportData, options = {}) {
           const wcagLinks = (rem.wcag || []).map((sc) => `<a href="${wcagScUrl(sc)}" target="_blank" rel="noopener">${sc}</a>`).join(', ');
           const snippetEsc = escapeHtml(rem.snippet || '');
           const fixId = `fix-axe-${chapterId}-${url.replace(/[^a-z0-9]/gi, '')}-${vIdx}`;
+          const occId = `occ-axe-${chapterId}-${url.replace(/[^a-z0-9]/gi, '')}-${vIdx}`;
+          const occurrencesHtml = (v.nodes && v.nodes.length > 0)
+            ? v.nodes.map((node, nIdx) => {
+                const sel = Array.isArray(node.target) ? node.target[0] : node.target;
+                const selectorEsc = escapeHtml(sel || `Element ${nIdx + 1}`);
+                const htmlSnippet = node.html != null ? escapeHtml(node.html) : '';
+                return `<div class="occurrence-item"><span class="selector">${selectorEsc}</span>${htmlSnippet ? `<pre>${htmlSnippet}</pre>` : ''}</div>`;
+              }).join('')
+            : '<p class="occurrence-item">No element details.</p>';
           html += `
           <div class="violation filterable" data-filter="violation" data-disability="Various">
             <strong>${escapeHtml(v.id)}: ${escapeHtml(v.help)}</strong>
@@ -535,7 +552,9 @@ export function generateReport(reportData, options = {}) {
             ${v.nodes?.length ? `<p><strong>Affected:</strong> ${v.nodes.length} element(s)</p>` : ''}
             <button type="button" class="btn-show-fix" data-target="${fixId}" aria-expanded="false">Show fix</button>
             <button type="button" class="btn-copy-fix" data-snippet="${snippetEsc}" title="Copy fix">Copy fix</button>
+            <button type="button" class="btn-show-occurrences" data-target="${occId}" aria-expanded="false">Show occurrences</button>
             <div id="${fixId}" class="remediation" hidden><pre>${snippetEsc}</pre></div>
+            <div id="${occId}" class="occurrences" hidden>${occurrencesHtml}</div>
           </div>`;
         });
 
@@ -609,6 +628,16 @@ export function generateReport(reportData, options = {}) {
           var visible = !target.hidden;
           target.hidden = visible;
           this.textContent = visible ? 'Show fix' : 'Hide fix';
+          this.setAttribute('aria-expanded', !visible);
+        });
+      });
+      document.querySelectorAll('.btn-show-occurrences').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          var target = document.getElementById(this.getAttribute('data-target'));
+          if (!target) return;
+          var visible = !target.hidden;
+          target.hidden = visible;
+          this.textContent = visible ? 'Show occurrences' : 'Hide occurrences';
           this.setAttribute('aria-expanded', !visible);
         });
       });
