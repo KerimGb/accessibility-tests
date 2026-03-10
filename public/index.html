@@ -1119,6 +1119,14 @@
 
       try {
         const res = await fetch('/api/run', { method: 'POST', body: fd });
+        const contentType = res.headers.get('content-type') || '';
+        if (!contentType.includes('application/json')) {
+          const text = await res.text();
+          if (text.trim().startsWith('<')) {
+            throw new Error('The server returned a web page instead of data. The accessibility app must run with the Node server (e.g. npm start), not as static files only.');
+          }
+          throw new Error(text || 'Request failed');
+        }
         const data = await res.json();
         if (!res.ok) {
           throw new Error(data.error || 'Request failed');
