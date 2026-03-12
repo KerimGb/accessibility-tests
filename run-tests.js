@@ -171,7 +171,20 @@ async function main() {
 
   const browser = await chromium.launch({
     headless: true,
-    args: ['--disable-blink-features=AutomationControlled'],
+    args: [
+      '--disable-blink-features=AutomationControlled',
+      '--no-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-gpu',
+      '--disable-software-rasterizer',
+      '--disable-extensions',
+      '--disable-background-networking',
+      '--disable-default-apps',
+      '--disable-sync',
+      '--metrics-recording-only',
+      '--mute-audio',
+      '--no-first-run',
+    ],
   });
 
   try {
@@ -233,6 +246,7 @@ async function main() {
         });
         report.summary.fail++;
       } finally {
+        await page.close().catch(() => {});
         await context.close();
       }
     }

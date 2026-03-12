@@ -55,6 +55,11 @@ The app **requires the Node server** to be running. Uploading only the `public/`
   ```
   Use your real Render service URL. Then the form will post to Render, and after submit users are redirected to Render for the loading page and report. The server allows cross-origin requests by default, so the form on wcag.about-us.be can call the Render API.
 
+  **Render memory limits:** The test runner launches Chromium (Playwright), which uses a lot of RAM. On Render’s free tier the service may hit the instance memory limit and restart. To reduce memory use:
+  - Set **`MAX_URLS_PER_RUN`** (e.g. `5` or `10`) in the Render environment. The server will run tests only for the first N URLs per run, which keeps each run shorter and lowers peak memory.
+  - Consider **upgrading the instance type** on Render if you need to test many URLs per run.
+  - The runner already uses Chromium flags and explicit cleanup (page/context/browser close) to limit memory.
+
 ### Optional: store manual checklist progress on FTP
 
 To persist the manual/assistive-tech checklist state on your FTP server (e.g. Combell), set these environment variables before starting the server:

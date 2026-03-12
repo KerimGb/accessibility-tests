@@ -97,6 +97,11 @@ app.post('/api/run', upload.single('file'), (req, res) => {
     return res.status(400).json({ error: 'No valid URLs provided. Add URLs in the text area or upload a CSV/XML file.' });
   }
 
+  const maxUrls = process.env.MAX_URLS_PER_RUN ? parseInt(process.env.MAX_URLS_PER_RUN, 10) : 0;
+  if (maxUrls > 0 && urls.length > maxUrls) {
+    urls = urls.slice(0, maxUrls);
+  }
+
   const id = uuidv4().slice(0, 8);
   const reportDir = join(REPORTS_BASE, id);
   if (!existsSync(reportDir)) mkdirSync(reportDir, { recursive: true });
