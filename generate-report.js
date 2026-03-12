@@ -238,14 +238,19 @@ export function generateReport(reportData, options = {}) {
     (sum, r) => sum + (r.violations?.length || 0),
     0
   );
+  const totalAxePasses = Object.values(reportData.axeResults || {}).reduce(
+    (sum, r) => sum + (r.passes?.length || 0),
+    0
+  );
 
   const loadErrors = (reportData.customResults || []).filter((r) => r.id === 'page-load');
 
   const pass = reportData.summary?.pass || 0;
   const fail = reportData.summary?.fail || 0;
   const warn = reportData.summary?.warn || 0;
-  const total = pass + fail + warn + totalAxeViolations;
-  const score = total === 0 ? 100 : Math.round((pass / total) * 100);
+  // Score = % of all checks that passed (custom pass + axe rules passed) / (custom results + axe violations + axe passes)
+  const total = pass + fail + warn + totalAxeViolations + totalAxePasses;
+  const score = total === 0 ? 100 : Math.round(((pass + totalAxePasses) / total) * 100);
   const scoreClamp = Math.max(0, Math.min(100, score));
 
   const disabilityStats = {};
@@ -413,6 +418,7 @@ export function generateReport(reportData, options = {}) {
     <div class="score-hero" aria-label="Overall accessibility score">
       <div class="score-value ${scoreClamp >= 80 ? 'good' : scoreClamp >= 50 ? 'mid' : 'low'}" aria-hidden="true">${scoreClamp}</div>
       <div class="score-label">out of 100</div>
+      <p class="score-explanation" style="font-size:0.8rem; color:var(--text-muted); margin:8px 0 0;">Custom checks + Axe rules: passed / total (WCAG-oriented)</p>
     </div>
 
     <div class="sticky-bar" id="sticky-bar">
