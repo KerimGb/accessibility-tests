@@ -164,6 +164,18 @@ export const REMEDIATION_MAP = {
     impact: 'medium',
     effort: 'simple',
   },
+  'text-contrast': {
+    wcag: ['1.4.3'],
+    snippet: 'Increase foreground/background contrast to at least 4.5:1 (normal text) or 3:1 (large text).',
+    impact: 'high',
+    effort: 'moderate',
+  },
+  'non-text-contrast': {
+    wcag: ['1.4.11'],
+    snippet: 'Ensure visual UI indicators (borders, icons, outlines, focus rings) have at least 3:1 contrast against adjacent colors.',
+    impact: 'high',
+    effort: 'moderate',
+  },
   'focus-indicator': {
     wcag: ['2.4.7'],
     snippet: ':focus { outline: 2px solid currentColor; outline-offset: 2px; }',

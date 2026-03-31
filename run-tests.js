@@ -130,13 +130,13 @@ async function runAxeScan(page, url) {
   };
 }
 
-async function runCustomChecks(page, url) {
+async function runCustomChecks(page, url, options = {}) {
   const allResults = [];
 
   const chapters = [
     ['semantics', runSemanticChecks],
     ['images', runImageChecks],
-    ['visualDesign', runVisualChecks],
+    ['visualDesign', async (p) => runVisualChecks(p, { enableContrastChecks: options.enableContrastChecks !== false })],
     ['responsive', async (p) => runResponsiveChecks(p, { width: 320, height: 568 })],
     ['multimedia', runMultimediaChecks],
     ['inputMethods', runInputMethodChecks],
@@ -183,6 +183,7 @@ async function main() {
   const generateReport = process.argv.includes('--report');
   const urlConcurrency = parseIntEnv('URL_CONCURRENCY', 2, 1, 8);
   const waitForNetworkIdle = parseBooleanEnv('WAIT_FOR_NETWORKIDLE', false);
+  const enableContrastChecks = parseBooleanEnv('ENABLE_CONTRAST_CHECKS', true);
 
   if (!urls || urls.length === 0) {
     console.error('No URLs. Use --urls="url1,url2" or configure urls.config.js');
@@ -198,6 +199,7 @@ async function main() {
   console.log(`URLs to test: ${urls.length}`);
   console.log(`URL concurrency: ${urlConcurrency}`);
   console.log(`Wait for networkidle: ${waitForNetworkIdle ? 'enabled' : 'disabled'}`);
+  console.log(`Contrast checks: ${enableContrastChecks ? 'enabled' : 'disabled'}`);
 
   const report = {
     generatedAt: new Date().toISOString(),
@@ -245,7 +247,7 @@ async function main() {
         report.axeResults[url] = axeData;
         if (!report.urls.includes(url)) report.urls.push(url);
 
-        const customData = await runCustomChecks(page, url);
+        const customData = await runCustomChecks(page, url, { enableContrastChecks });
         report.customResults.push(...customData);
 
         customData.forEach((r) => {

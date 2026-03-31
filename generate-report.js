@@ -55,6 +55,8 @@ const DISABILITY_MAP = {
   'canvas-alt': ['Blindness', 'Low Vision', 'Deafblindness'],
   'image-map-alt': ['Blindness', 'Low Vision', 'Deafblindness'],
   'link-differentiation': ['Colorblindness', 'Low Vision'],
+  'text-contrast': ['Low Vision', 'Colorblindness'],
+  'non-text-contrast': ['Low Vision', 'Colorblindness'],
   'focus-indicator': ['Low Vision', 'Dexterity/Motor Disabilities', 'Blindness'],
   'no-horizontal-scroll': ['Low Vision', 'Dexterity/Motor Disabilities'],
   'viewport-zoom': ['Low Vision', 'Dexterity/Motor Disabilities'],
