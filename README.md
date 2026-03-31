@@ -63,6 +63,7 @@ If `DATABASE_URL` is not set, the app continues using local files/FTP fallback.
 Monitoring endpoint:
 
 - `GET /api/health/db` -> DB health (`up`, `down`, or `disabled`).
+- `GET /api/report/:id/urls` -> list URLs currently stored for a domain report.
 
 ### Live / production deployment
 

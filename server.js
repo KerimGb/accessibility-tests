@@ -744,6 +744,57 @@ app.get('/api/report/:id/manual-progress', async (req, res) => {
   }
 });
 
+app.get('/api/report/:id/urls', async (req, res) => {
+  const id = req.params.id;
+  if (!isValidReportId(id)) return res.status(400).json({ error: 'Invalid report ID' });
+
+  // Prefer DB-backed merged data when available.
+  if (dbPool) {
+    try {
+      const dbRun = await dbGetRun(id);
+      if (dbRun && dbRun.resultJson) {
+        const urls = Array.isArray(dbRun.resultJson.urls)
+          ? [...new Set(dbRun.resultJson.urls.map((u) => String(u)).filter(Boolean))]
+          : [];
+        return res.json({
+          id,
+          urls,
+          count: urls.length,
+          source: 'db',
+        });
+      }
+    } catch (err) {
+      console.error(`[run ${id}] DB urls lookup failed:`, err.message);
+    }
+  }
+
+  // Fallback to local file, then FTP.
+  const filePath = join(REPORTS_BASE, id, 'accessibility-results.json');
+  let raw = null;
+  if (existsSync(filePath)) {
+    raw = readFileSync(filePath, 'utf8');
+  } else {
+    raw = await ftpDownload(`${id}/accessibility-results.json`);
+  }
+  if (!raw) {
+    return res.status(404).json({ error: 'Report not found' });
+  }
+  try {
+    const data = JSON.parse(raw);
+    const urls = Array.isArray(data.urls)
+      ? [...new Set(data.urls.map((u) => String(u)).filter(Boolean))]
+      : [];
+    return res.json({
+      id,
+      urls,
+      count: urls.length,
+      source: existsSync(filePath) ? 'file' : 'ftp',
+    });
+  } catch (err) {
+    return res.status(500).json({ error: `Invalid report data: ${err.message}` });
+  }
+});
+
 app.put('/api/report/:id/manual-progress', async (req, res) => {
   const id = req.params.id;
   if (!isValidReportId(id)) return res.status(400).json({ error: 'Invalid report ID' });
