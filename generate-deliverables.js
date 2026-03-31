@@ -195,6 +195,57 @@ function buildAiClientSummaryHtml({
   `;
 }
 
+function severityRank(level) {
+  if (level === 'critical') return 3;
+  if (level === 'serious') return 2;
+  if (level === 'moderate') return 1;
+  return 0;
+}
+
+function computeClientIssueMetrics(reportData, fixOrderItems) {
+  const severity = { critical: 0, serious: 0, moderate: 0, minor: 0 };
+  const pageMap = new Map((reportData.urls || []).map((u) => [u, { issues: 0, worst: 'minor' }]));
+
+  Object.entries(reportData.axeResults || {}).forEach(([url, data]) => {
+    (data.violations || []).forEach((v) => {
+      const impact = String(v.impact || 'moderate').toLowerCase();
+      const level = ['critical', 'serious', 'moderate', 'minor'].includes(impact) ? impact : 'moderate';
+      const count = Math.max(1, (v.nodes || []).length || 1);
+      severity[level] += count;
+
+      const current = pageMap.get(url) || { issues: 0, worst: 'minor' };
+      current.issues += count;
+      if (severityRank(level) > severityRank(current.worst)) current.worst = level;
+      pageMap.set(url, current);
+    });
+  });
+
+  (reportData.customResults || []).forEach((r) => {
+    if (r.status !== 'fail' && r.status !== 'warn') return;
+    const rem = getRemediation(r.id, null);
+    const level = r.status === 'fail'
+      ? ((rem.impact || '').toLowerCase() === 'high' ? 'critical' : 'serious')
+      : 'moderate';
+    severity[level] += 1;
+    if (!r.url) return;
+    const current = pageMap.get(r.url) || { issues: 0, worst: 'minor' };
+    current.issues += 1;
+    if (severityRank(level) > severityRank(current.worst)) current.worst = level;
+    pageMap.set(r.url, current);
+  });
+
+  const mostAffectedPages = [...pageMap.entries()]
+    .map(([url, v]) => ({ url, issues: v.issues, worst: v.worst }))
+    .filter((x) => x.issues > 0)
+    .sort((a, b) => b.issues - a.issues || severityRank(b.worst) - severityRank(a.worst));
+
+  return {
+    severity,
+    mostAffectedPages,
+    pagesAffected: mostAffectedPages.length,
+  };
+}
+
 export function generateClientPresentation(data, outputDir) {
   const { reportData, fixOrderItems, disabilityStats, score, scoreClamp, pass, fail, warn, totalAxeViolations, total } = data;
   const chartPayload = buildChartDataPayload(reportData, {
@@ -211,6 +262,22 @@ export function generateClientPresentation(data, outputDir) {
   const quickWins = uniqueByRule(fixOrderItems.filter((i) => i.impact === 'high' && i.effort === 'simple'));
   const mediumEffort = uniqueByRule(fixOrderItems.filter((i) => (i.impact === 'high' && i.effort !== 'simple') || (i.impact === 'medium' && i.effort === 'simple')));
   const longTerm = uniqueByRule(fixOrderItems.filter((i) => i.effort === 'complex' || (i.impact === 'medium' && i.effort !== 'simple') || i.impact === 'low'));
+  const { host: siteHost } = deriveSiteUrls(reportData);
+  const auditedDate = new Date(reportData.generatedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+  const metrics = computeClientIssueMetrics(reportData, fixOrderItems);
+  const criticalIssues = metrics.severity.critical;
+  const totalPages = (reportData.urls || []).length;
+  const pagesAffected = metrics.pagesAffected;
+  const mostAffected = metrics.mostAffectedPages.slice(0, 7);
+  const complianceHeadline = scoreClamp >= 75
+    ? 'WCAG 2.1 compliance — Level AA partial'
+    : scoreClamp >= 60
+      ? 'WCAG 2.1 compliance — Level A partial'
+      : 'WCAG 2.1 compliance — below Level A';
+  const complianceNote = scoreClamp >= 75
+    ? `The site meets ${scoreClamp}% of tested criteria. Continue resolving remaining serious and critical issues to reach full Level AA.`
+    : `The site meets ${scoreClamp}% of tested criteria. Level AA has not been reached. Resolving critical issues first is the fastest path forward.`;
+  const topRoadmap = uniqueByRule(fixOrderItems).slice(0, 5);
 
   let html = `<!DOCTYPE html>
 <html lang="en">
@@ -221,59 +288,141 @@ export function generateClientPresentation(data, outputDir) {
   ${REPORT_BRAND_HEAD}
   <style>${STYLES}
     ${buildChartSectionStyles()}
-    .score-hero { text-align: center; padding: 32px; background: var(--bg); border-radius: 12px; margin: 24px 0; }
-    .score-value { font-size: 4rem; font-weight: 700; }
-    .score-value.good { color: var(--pass); }
-    .score-value.mid { color: var(--warn); }
-    .score-value.low { color: var(--fail); }
-    .stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 12px; margin: 20px 0; }
-    .stat-card { padding: 16px; background: var(--bg); border-radius: 8px; text-align: center; }
-    .stat-card span { display: block; font-size: 1.8rem; font-weight: 700; }
-    .stat-card small { font-size: 0.85rem; color: var(--text-muted); }
+    .audit-kicker { letter-spacing: .08em; text-transform: uppercase; font-size: .85rem; color: var(--text-muted); margin: 0 0 6px; }
+    .audit-domain { font-size: 2.1rem; line-height: 1.1; margin: 0 0 8px; }
+    .audit-meta { margin: 0 0 20px; font-size: 1rem; color: var(--text-muted); }
+    .kpi-grid { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; margin: 0 0 18px; }
+    .kpi { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+    .kpi .label { font-size: .92rem; color: var(--text-muted); margin-bottom: 6px; }
+    .kpi .value { font-size: 2rem; font-weight: 700; line-height: 1; }
+    .kpi .value.warn { color: #c97700; }
+    .kpi .value.fail { color: var(--fail); }
+    .compliance-card { display: grid; grid-template-columns: 108px 1fr; gap: 16px; background: var(--bg); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin: 0 0 18px; align-items: center; }
+    .score-ring { width: 88px; height: 88px; border-radius: 50%; background: conic-gradient(var(--accent) ${scoreClamp}%, #e8e6e1 0); display: grid; place-items: center; margin: 0 auto; }
+    .score-ring::before { content: "${scoreClamp}"; width: 66px; height: 66px; border-radius: 50%; background: #fff; display: grid; place-items: center; font-weight: 700; color: #9b5e00; }
+    .compliance-title { margin: 0 0 6px; font-size: 1.7rem; line-height: 1.15; }
+    .compliance-copy { margin: 0; color: var(--text); }
+    .status-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+    .status-pill { padding: 6px 10px; border-radius: 8px; font-size: .92rem; font-weight: 600; }
+    .status-pill.a { background: #e8f5e9; color: #2e7d32; }
+    .status-pill.aa { background: #fff3e0; color: #8c5b00; }
+    .status-pill.aaa { background: #ffebee; color: #a73636; }
+    .stats-panels { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 0 0 22px; }
+    .panel { background: var(--bg); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+    .panel h3 { margin: 0 0 12px; letter-spacing: .06em; text-transform: uppercase; font-size: .95rem; }
+    .severity-row { display: grid; grid-template-columns: 110px 1fr 42px; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .severity-row .bar { height: 12px; background: #ecebea; border-radius: 999px; overflow: hidden; }
+    .severity-row .fill { height: 100%; border-radius: 999px; }
+    .sev-critical { background: #c73b42; } .sev-serious { background: #d98200; } .sev-moderate { background: #3b6db1; } .sev-minor { background: #88887f; }
+    .most-pages table { width: 100%; border-collapse: collapse; }
+    .most-pages th, .most-pages td { padding: 8px 0; border-bottom: 1px solid var(--border); font-size: .95rem; }
+    .most-pages th { color: var(--text-muted); font-weight: 600; }
+    .sev-tag { padding: 3px 8px; border-radius: 999px; font-size: .82rem; font-weight: 600; }
+    .sev-tag.critical { background: #ffebee; color: #a73636; }
+    .sev-tag.serious { background: #fff3e0; color: #8c5b00; }
+    .sev-tag.moderate { background: #e3f2fd; color: #1f5f97; }
+    .sev-tag.minor { background: #f1f1ef; color: #686860; }
     .phase { padding: 16px; margin: 12px 0; border-left: 4px solid var(--accent); background: #f0f7f4; border-radius: 0 8px 8px 0; }
     .phase h3 { margin-top: 0; }
+    .roadmap { margin-top: 24px; background: var(--bg); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+    .roadmap .item { display: grid; grid-template-columns: 34px 1fr; gap: 10px; padding: 14px 0; border-top: 1px solid var(--border); }
+    .roadmap .item:first-child { border-top: none; padding-top: 4px; }
+    .roadmap .idx { width: 30px; height: 30px; border-radius: 999px; background: #fff; border: 1px solid var(--border); display: grid; place-items: center; font-weight: 700; color: var(--text-muted); }
+    .roadmap h4 { margin: 0 0 4px; font-size: 1.45rem; line-height: 1.2; }
+    .roadmap p { margin: 0 0 8px; color: var(--text); }
+    .badge-line { display: flex; gap: 8px; flex-wrap: wrap; }
+    .badge-line .pill { padding: 4px 8px; border-radius: 999px; font-size: .9rem; font-weight: 600; background: #fff; border: 1px solid var(--border); }
+    .pill.impact-high { color: #a73636; background: #ffebee; border-color: #ffd7db; }
+    .pill.impact-medium { color: #8c5b00; background: #fff3e0; border-color: #ffe5bf; }
+    .pill.impact-low { color: #2e7d32; background: #e8f5e9; border-color: #cfe9d0; }
+    @media (max-width: 900px) { .kpi-grid { grid-template-columns: repeat(2, minmax(0,1fr)); } .stats-panels { grid-template-columns: 1fr; } .compliance-card { grid-template-columns: 1fr; } }
     ul { margin: 8px 0; padding-left: 24px; }
   </style>
 </head>
 <body>
   <div class="container">
     ${buildDeliverableHeaderHtml()}
-    <h1>Accessibility summary</h1>
-    <p class="meta">Generated ${date}</p>
+    <p class="audit-kicker">Accessibility Audit Report</p>
+    <h1 class="audit-domain">${escapeHtml(siteHost)}</h1>
+    <p class="audit-meta">Audited ${totalPages} page${totalPages === 1 ? '' : 's'} · ${auditDate} · WCAG 2.1</p>
 
-    ${buildExecutiveSummaryHtml(data)}
+    <section class="kpi-grid" aria-label="Top metrics">
+      <div class="kpi"><div class="label">Overall score</div><div class="value warn">${scoreClamp} / 100</div></div>
+      <div class="kpi"><div class="label">Total issues</div><div class="value">${issuesCount}</div></div>
+      <div class="kpi"><div class="label">Critical issues</div><div class="value fail">${criticalIssues}</div></div>
+      <div class="kpi"><div class="label">Pages affected</div><div class="value">${pagesAffected} / ${Math.max(1, totalPages)}</div></div>
+    </section>
 
-    ${buildAiClientSummaryHtml({
-      reportData,
-      chartPayload,
-      scoreClamp,
-      pass,
-      fail,
-      warn,
-      totalAxeViolations,
-      quickWins,
-      mediumEffort,
-      longTerm,
-    })}
+    <section class="compliance-card" aria-label="Compliance snapshot">
+      <div class="score-ring" aria-hidden="true"></div>
+      <div>
+        <h2 class="compliance-title">${escapeHtml(complianceHeadline)}</h2>
+        <p class="compliance-copy">${escapeHtml(complianceNote)}</p>
+        <div class="status-row">
+          <span class="status-pill a">Level A — ${scoreClamp >= 60 ? 'partial' : 'not reached'}</span>
+          <span class="status-pill aa">Level AA — ${scoreClamp >= 75 ? 'partial' : 'not reached'}</span>
+          <span class="status-pill aaa">Level AAA — not reached</span>
+        </div>
+      </div>
+    </section>
 
-    <h2>Overall score</h2>
-    <div class="score-hero">
-      <div class="score-value ${scoreClamp >= 80 ? 'good' : scoreClamp >= 50 ? 'mid' : 'low'}">${scoreClamp}</div>
-      <p style="margin:8px 0 0;">out of 100</p>
-    </div>
-
-    <h2>Statistics</h2>
-    <div class="stats-grid">
-      <div class="stat-card"><span style="color:var(--pass)">${pass}</span><small>Passed</small></div>
-      <div class="stat-card"><span style="color:var(--warn)">${warn}</span><small>Warnings</small></div>
-      <div class="stat-card"><span style="color:var(--fail)">${fail}</span><small>Failures</small></div>
-      <div class="stat-card"><span style="color:var(--fail)">${totalAxeViolations}</span><small>Axe violations</small></div>
-      <div class="stat-card"><span>${total}</span><small>Total checks</small></div>
-    </div>
+    <section class="stats-panels">
+      <div class="panel">
+        <h3>Issues by severity</h3>
+        ${[
+          ['Critical', metrics.severity.critical, 'sev-critical'],
+          ['Serious', metrics.severity.serious, 'sev-serious'],
+          ['Moderate', metrics.severity.moderate, 'sev-moderate'],
+          ['Minor', metrics.severity.minor, 'sev-minor'],
+        ].map(([label, value, cls]) => {
+          const max = Math.max(1, metrics.severity.critical, metrics.severity.serious, metrics.severity.moderate, metrics.severity.minor);
+          const pct = Math.round((Number(value) / max) * 100);
+          return `<div class="severity-row"><div>${label}</div><div class="bar"><div class="fill ${cls}" style="width:${pct}%"></div></div><div>${value}</div></div>`;
+        }).join('')}
+      </div>
+      <div class="panel most-pages">
+        <h3>Most affected pages</h3>
+        <table>
+          <thead><tr><th>Page</th><th>Issues</th><th>Worst</th></tr></thead>
+          <tbody>
+            ${(mostAffected.length ? mostAffected : [{ url: '—', issues: 0, worst: 'minor' }]).map((row) => {
+              let label = row.url;
+              try {
+                const u = new URL(row.url);
+                label = u.pathname || '/';
+              } catch {}
+              return `<tr><td>${escapeHtml(label)}</td><td>${row.issues}</td><td><span class="sev-tag ${row.worst}">${row.worst.charAt(0).toUpperCase() + row.worst.slice(1)}</span></td></tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    </section>
 
     ${buildChartsSectionHtml(chartPayload, 'a11y-chart-data-client')}
 
-    <h2>Step-by-step remediation plan</h2>
+    <section class="roadmap">
+      <h2>Recommended fix roadmap</h2>
+      <p>Prioritized by impact-to-effort ratio. Addressing these in order delivers the fastest score improvement.</p>
+      ${topRoadmap.map((item, idx) => {
+        const impact = (item.impact || 'medium').toLowerCase();
+        const effort = (item.effort || 'moderate').toLowerCase();
+        const eta = effort === 'simple' ? (impact === 'high' ? '~2h' : '~4h') : effort === 'moderate' ? '~1 day' : '~3+ days';
+        return `<div class="item">
+          <div class="idx">${idx + 1}</div>
+          <div>
+            <h4>${escapeHtml(item.rule)}</h4>
+            <p>${escapeHtml(item.url ? `Affects ${item.url}.` : 'Improve this pattern site-wide for accessibility and compliance.')}</p>
+            <div class="badge-line">
+              <span class="pill impact-${impact === 'high' ? 'high' : impact === 'low' ? 'low' : 'medium'}">${impact} impact</span>
+              <span class="pill">${effort} effort</span>
+              <span class="pill">${eta}</span>
+            </div>
+          </div>
+        </div>`;
+      }).join('')}
+    </section>
+
+    <h2 style="margin-top:24px;">Step-by-step remediation plan</h2>
     <p>We recommend addressing issues in three phases, starting with quick wins.</p>
 
     <div class="phase">
