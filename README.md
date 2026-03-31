@@ -38,6 +38,22 @@ Then open http://localhost:3456 (or the port shown). You can:
 
 Each report has a unique ID in the URL, e.g. `http://localhost:3456/report/a1b2c3d4`
 
+### Optional: persist runs in Postgres (Render)
+
+To store run status/results/manual checklist progress in Postgres:
+
+- Set `DATABASE_URL` on the **Node server environment** (Render web service env vars).
+- Optional for SSL-required connections: set `DATABASE_SSL=true`.
+
+When `DATABASE_URL` is set, the server automatically creates a `runs` table and stores:
+
+- run lifecycle status (`running`, `done`, `error`)
+- summary run metadata (requested/processed URL counts, truncation, errors)
+- raw report JSON (`result_json`)
+- manual checklist progress (`manual_progress_json`)
+
+If `DATABASE_URL` is not set, the app continues using local files/FTP fallback.
+
 ### Live / production deployment
 
 The app **requires the Node server** to be running. Uploading only the `public/` folder (e.g. via FTP) is not enough: `/api/run` and `/api/status/:id` are handled by the server. If the server is not running, the form will show: *"API not available: the server returned a page instead of JSON..."*.

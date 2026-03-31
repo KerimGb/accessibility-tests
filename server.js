@@ -12,11 +12,121 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync, statSy
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { Client } from 'basic-ftp';
+import pg from 'pg';
 import { sendRunNotificationEmail, createSmtpTransport } from './server-email.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPORTS_BASE = join(__dirname, 'reports');
 const PORT = process.env.PORT || 3456;
+const { Pool } = pg;
+
+function parseBooleanEnv(name, defaultValue = false) {
+  const raw = process.env[name];
+  if (raw == null) return defaultValue;
+  const value = String(raw).trim().toLowerCase();
+  if (['1', 'true', 'yes', 'on'].includes(value)) return true;
+  if (['0', 'false', 'no', 'off'].includes(value)) return false;
+  return defaultValue;
+}
+
+const DATABASE_URL = process.env.DATABASE_URL || '';
+const DB_ENABLED = !!DATABASE_URL;
+const DB_SSL = parseBooleanEnv('DATABASE_SSL', false);
+const dbPool = DB_ENABLED
+  ? new Pool({
+      connectionString: DATABASE_URL,
+      ssl: DB_SSL ? { rejectUnauthorized: false } : undefined,
+    })
+  : null;
+
+async function initDb() {
+  if (!dbPool) return;
+  await dbPool.query(`
+    CREATE TABLE IF NOT EXISTS runs (
+      id TEXT PRIMARY KEY,
+      status TEXT NOT NULL,
+      urls INTEGER,
+      processed_urls INTEGER,
+      requested_urls INTEGER,
+      truncated BOOLEAN DEFAULT FALSE,
+      error TEXT,
+      notify_requested BOOLEAN DEFAULT FALSE,
+      notify_email TEXT,
+      statement_meta_json JSONB,
+      result_json JSONB,
+      manual_progress_json JSONB,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+}
+
+async function dbUpsertRun(id, patch = {}) {
+  if (!dbPool || !id) return;
+  const status = patch.status || 'running';
+  await dbPool.query(
+    `
+      INSERT INTO runs (
+        id, status, urls, processed_urls, requested_urls, truncated, error,
+        notify_requested, notify_email, statement_meta_json, result_json, manual_progress_json
+      ) VALUES (
+        $1, $2, $3, $4, $5, $6, $7,
+        $8, $9, $10::jsonb, $11::jsonb, $12::jsonb
+      )
+      ON CONFLICT (id) DO UPDATE SET
+        status = COALESCE(EXCLUDED.status, runs.status),
+        urls = COALESCE(EXCLUDED.urls, runs.urls),
+        processed_urls = COALESCE(EXCLUDED.processed_urls, runs.processed_urls),
+        requested_urls = COALESCE(EXCLUDED.requested_urls, runs.requested_urls),
+        truncated = COALESCE(EXCLUDED.truncated, runs.truncated),
+        error = COALESCE(EXCLUDED.error, runs.error),
+        notify_requested = COALESCE(EXCLUDED.notify_requested, runs.notify_requested),
+        notify_email = COALESCE(EXCLUDED.notify_email, runs.notify_email),
+        statement_meta_json = COALESCE(EXCLUDED.statement_meta_json, runs.statement_meta_json),
+        result_json = COALESCE(EXCLUDED.result_json, runs.result_json),
+        manual_progress_json = COALESCE(EXCLUDED.manual_progress_json, runs.manual_progress_json),
+        updated_at = NOW()
+    `,
+    [
+      id,
+      status,
+      patch.urls ?? null,
+      patch.processedUrls ?? null,
+      patch.requestedUrls ?? null,
+      patch.truncated ?? null,
+      patch.error ?? null,
+      patch.notifyRequested ?? null,
+      patch.notifyEmail ?? null,
+      patch.statementMeta ? JSON.stringify(patch.statementMeta) : null,
+      patch.resultJson ? JSON.stringify(patch.resultJson) : null,
+      patch.manualProgress ? JSON.stringify(patch.manualProgress) : null,
+    ]
+  );
+}
+
+async function dbGetRun(id) {
+  if (!dbPool || !id) return null;
+  const { rows } = await dbPool.query(
+    `SELECT id, status, urls, processed_urls, requested_urls, truncated, error, notify_requested, notify_email, result_json, manual_progress_json
+     FROM runs WHERE id = $1 LIMIT 1`,
+    [id]
+  );
+  if (!rows.length) return null;
+  const row = rows[0];
+  return {
+    id: row.id,
+    status: row.status,
+    urls: row.urls ?? 0,
+    processedUrls: row.processed_urls ?? row.urls ?? 0,
+    requestedUrls: row.requested_urls ?? row.urls ?? 0,
+    truncated: !!row.truncated,
+    error: row.error || null,
+    notifyRequested: !!row.notify_requested,
+    notifyEmail: row.notify_email || null,
+    resultJson: row.result_json || null,
+    manualProgress: row.manual_progress_json || null,
+  };
+}
 
 // In-memory run status (running, done, error)
 const runStatus = new Map();
@@ -45,7 +155,11 @@ function isValidEmail(email) {
 
 function runStatePatch(id, patch) {
   const prev = runStatus.get(id) || {};
-  runStatus.set(id, { ...prev, ...patch });
+  const next = { ...prev, ...patch };
+  runStatus.set(id, next);
+  dbUpsertRun(id, next).catch((err) => {
+    console.error(`[run ${id}] DB state update failed:`, err.message);
+  });
   void maybeSendRunEmail(id);
 }
 
@@ -201,7 +315,7 @@ app.post('/api/run', upload.single('file'), (req, res) => {
     console.error('statement-meta write failed:', err.message);
   }
 
-  runStatus.set(id, {
+  const initialState = {
     status: 'running',
     urls: processedUrls,
     requestedUrls,
@@ -210,6 +324,10 @@ app.post('/api/run', upload.single('file'), (req, res) => {
     error: null,
     notifyRequested: !!(notifyOnComplete && notifyEmail),
     notifyEmail: notifyOnComplete && notifyEmail ? notifyEmail : null,
+  };
+  runStatus.set(id, initialState);
+  dbUpsertRun(id, { ...initialState, statementMeta }).catch((err) => {
+    console.error(`[run ${id}] DB initial write failed:`, err.message);
   });
 
   const urlsArg = urls.join('\n');
@@ -231,19 +349,21 @@ app.post('/api/run', upload.single('file'), (req, res) => {
     const resultsPath = join(reportDir, 'accessibility-results.json');
 
     if (code === 0 && existsSync(reportPath)) {
+      const resultJson = readJsonIfExists(resultsPath);
       persistReportArtifactsToFtp(id).catch((err) => {
         console.error(`[run ${id}] FTP persistence failed:`, err.message);
       });
-      runStatePatch(id, { status: 'done', urls: processedUrls, processedUrls, requestedUrls, truncated, error: null });
+      runStatePatch(id, { status: 'done', urls: processedUrls, processedUrls, requestedUrls, truncated, error: null, resultJson });
       return;
     }
     if (code === 0 && !existsSync(reportPath)) {
       const pollForReport = (attempts = 0) => {
         if (existsSync(reportPath)) {
+          const resultJson = readJsonIfExists(resultsPath);
           persistReportArtifactsToFtp(id).catch((err) => {
             console.error(`[run ${id}] FTP persistence failed:`, err.message);
           });
-          runStatePatch(id, { status: 'done', urls: processedUrls, processedUrls, requestedUrls, truncated, error: null });
+          runStatePatch(id, { status: 'done', urls: processedUrls, processedUrls, requestedUrls, truncated, error: null, resultJson });
           return;
         }
         if (attempts < 5) {
@@ -254,10 +374,11 @@ app.post('/api/run', upload.single('file'), (req, res) => {
               const { generateReport } = await import('./generate-report.js');
               generateReport(null, { outputDir: reportDir });
               if (existsSync(reportPath)) {
+                const resultJson = readJsonIfExists(resultsPath);
                 persistReportArtifactsToFtp(id).catch((err) => {
                   console.error(`[run ${id}] FTP persistence failed:`, err.message);
                 });
-                runStatePatch(id, { status: 'done', urls: processedUrls, processedUrls, requestedUrls, truncated, error: null });
+                runStatePatch(id, { status: 'done', urls: processedUrls, processedUrls, requestedUrls, truncated, error: null, resultJson });
               } else {
                 runStatePatch(id, { status: 'error', urls: processedUrls, processedUrls, requestedUrls, truncated, error: 'Report generation failed.' });
               }
@@ -312,7 +433,18 @@ app.post('/api/run', upload.single('file'), (req, res) => {
 
 app.get('/api/status/:id', async (req, res) => {
   const id = req.params.id;
-  const status = runStatus.get(id);
+  let status = runStatus.get(id);
+  if (!status && dbPool) {
+    try {
+      const dbStatus = await dbGetRun(id);
+      if (dbStatus) {
+        status = dbStatus;
+        runStatus.set(id, dbStatus);
+      }
+    } catch (err) {
+      console.error(`[run ${id}] DB status lookup failed:`, err.message);
+    }
+  }
   const reportPath = join(REPORTS_BASE, id, 'accessibility-report.html');
 
   if (!status) {
@@ -413,6 +545,15 @@ function listScreenshotFiles(reportDir) {
   }
 }
 
+function readJsonIfExists(filePath) {
+  if (!existsSync(filePath)) return null;
+  try {
+    return JSON.parse(readFileSync(filePath, 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
 async function persistReportArtifactsToFtp(id) {
   if (!FTP_CONFIG) return;
   const reportDir = join(REPORTS_BASE, id);
@@ -442,6 +583,16 @@ async function persistReportArtifactsToFtp(id) {
 app.get('/api/report/:id/manual-progress', async (req, res) => {
   const id = req.params.id;
   if (!isValidReportId(id)) return res.status(400).json({ error: 'Invalid report ID' });
+  if (dbPool) {
+    try {
+      const dbRun = await dbGetRun(id);
+      if (dbRun && dbRun.manualProgress && Array.isArray(dbRun.manualProgress.checked)) {
+        return res.json({ checked: dbRun.manualProgress.checked });
+      }
+    } catch (err) {
+      console.error(`[run ${id}] DB manual-progress lookup failed:`, err.message);
+    }
+  }
   const filePath = join(REPORTS_BASE, id, 'manual-progress.json');
   let raw = null;
   try {
@@ -461,11 +612,23 @@ app.put('/api/report/:id/manual-progress', async (req, res) => {
   const id = req.params.id;
   if (!isValidReportId(id)) return res.status(400).json({ error: 'Invalid report ID' });
   const reportDir = join(REPORTS_BASE, id);
-  if (!existsSync(reportDir)) return res.status(404).json({ error: 'Report not found' });
+  if (!existsSync(reportDir)) {
+    try {
+      const dbRun = dbPool ? await dbGetRun(id) : null;
+      if (!dbRun) return res.status(404).json({ error: 'Report not found' });
+    } catch (err) {
+      console.error(`[run ${id}] DB report lookup failed:`, err.message);
+      return res.status(500).json({ error: 'Failed to verify report' });
+    }
+  }
   const checked = req.body?.checked;
   if (!Array.isArray(checked)) return res.status(400).json({ error: 'Body must include checked array' });
   const filePath = join(reportDir, 'manual-progress.json');
   try {
+    if (dbPool) {
+      await dbUpsertRun(id, { id, status: (runStatus.get(id)?.status || 'done'), manualProgress: { checked } });
+    }
+    if (!existsSync(reportDir)) mkdirSync(reportDir, { recursive: true });
     writeFileSync(filePath, JSON.stringify({ checked }), 'utf8');
     ftpUpload(filePath, `${id}/manual-progress.json`).catch(() => {});
     res.json({ ok: true });
@@ -480,6 +643,27 @@ function serveReportFile(id, filename) {
     return readFileSync(filePath, 'utf8');
   }
   return null;
+}
+
+async function ensureReportFilesFromDb(id) {
+  if (!dbPool) return false;
+  try {
+    const dbRun = await dbGetRun(id);
+    if (!dbRun || !dbRun.resultJson) return false;
+    const reportDir = join(REPORTS_BASE, id);
+    if (!existsSync(reportDir)) mkdirSync(reportDir, { recursive: true });
+    const resultsPath = join(reportDir, 'accessibility-results.json');
+    writeFileSync(resultsPath, JSON.stringify(dbRun.resultJson, null, 2), 'utf8');
+    if (dbRun.manualProgress && Array.isArray(dbRun.manualProgress.checked)) {
+      writeFileSync(join(reportDir, 'manual-progress.json'), JSON.stringify(dbRun.manualProgress, null, 2), 'utf8');
+    }
+    const { generateReport } = await import('./generate-report.js');
+    generateReport(dbRun.resultJson, { outputDir: reportDir });
+    return existsSync(join(reportDir, 'accessibility-report.html'));
+  } catch (err) {
+    console.error(`[run ${id}] Failed to hydrate report from DB:`, err.message);
+    return false;
+  }
 }
 
 const DELIVERABLE_FILES = ['accessibility-developers.html', 'accessibility-client.html', 'accessibility-statement.html'];
@@ -507,6 +691,10 @@ app.get('/report/:id/:file', async (req, res) => {
     if (!html) {
       html = await ftpDownload(`${id}/${file}`);
     }
+    if (!html) {
+      const hydrated = await ensureReportFilesFromDb(id);
+      if (hydrated) html = serveReportFile(id, file);
+    }
     if (html) {
       res.setHeader('Content-Type', 'text/html');
       return res.send(html);
@@ -531,7 +719,7 @@ app.get('/report/:id', async (req, res) => {
   const id = req.params.id;
   const reportPath = join(REPORTS_BASE, id, 'accessibility-report.html');
 
-  if (existsSync(reportPath)) {
+  if (existsSync(reportPath) || await ensureReportFilesFromDb(id)) {
     if (!req.path.endsWith('/')) {
       return res.redirect(301, `/report/${id}/`);
     }
@@ -569,7 +757,7 @@ app.get('/report/:id', async (req, res) => {
 app.get('/report/:id/', async (req, res) => {
   const id = req.params.id;
   const reportPath = join(REPORTS_BASE, id, 'accessibility-report.html');
-  if (existsSync(reportPath)) {
+  if (existsSync(reportPath) || await ensureReportFilesFromDb(id)) {
     const html = readFileSync(reportPath, 'utf8');
     res.setHeader('Content-Type', 'text/html');
     return res.send(html);
@@ -586,6 +774,18 @@ app.get('/', (req, res) => {
   res.sendFile(join(__dirname, 'public', 'index.html'));
 });
 
-app.listen(PORT, () => {
-  console.log(`Accessibility test server running at http://localhost:${PORT}`);
-});
+initDb()
+  .then(() => {
+    if (DB_ENABLED) {
+      console.log('Postgres persistence enabled (runs table ready).');
+    } else {
+      console.log('Postgres persistence disabled (DATABASE_URL not set).');
+    }
+    app.listen(PORT, () => {
+      console.log(`Accessibility test server running at http://localhost:${PORT}`);
+    });
+  })
+  .catch((err) => {
+    console.error('Failed to initialize database:', err.message);
+    process.exit(1);
+  });
