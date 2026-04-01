@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex" />
+  <meta name="accessibility-app-base" content="">
+  <title>All domain audits</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin:0; background:#fafaf8; color:#1a1a1a; padding:24px; }
+    .wrap { max-width: 980px; margin: 0 auto; background:#fff; border:1px solid #e8e6e1; border-radius:12px; overflow:hidden; }
+    header { padding:16px 18px; border-bottom:1px solid #e8e6e1; display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; }
+    h1 { margin:0; font-size:1.2rem; }
+    .actions a { text-decoration:none; color:#1a1a1a; border:1px solid #d9d7d2; border-radius:8px; padding:7px 10px; background:#fff; font-size:.9rem; }
+    .actions a:hover { background:#f3f3f1; }
+    .toolbar { padding: 12px 18px; border-bottom:1px solid #f0efea; display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+    .toolbar input { padding:8px 10px; border:1px solid #d9d7d2; border-radius:8px; min-width:240px; }
+    .toolbar button { padding:8px 10px; border:0; border-radius:8px; background:#2d9d78; color:#fff; font-weight:600; cursor:pointer; }
+    .msg { padding: 8px 18px; color:#c62828; }
+    table { width:100%; border-collapse:collapse; font-size:.94rem; }
+    th, td { padding:10px 12px; border-bottom:1px solid #f0efea; text-align:left; }
+    th { background:#fafaf8; color:#5c5c5c; font-weight:600; }
+    tbody tr:hover { background:#fafaf8; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>All domain audits</h1>
+      <div class="actions"><a href="/">Run a new audit</a></div>
+    </header>
+    <div class="toolbar">
+      <label for="pwd">Password</label>
+      <input id="pwd" type="password" placeholder="Enter access password" />
+      <button id="load">Load audits</button>
+    </div>
+    <div class="msg" id="msg"></div>
+    <table>
+      <thead><tr><th>Domain</th><th>Status</th><th>Pages</th><th>Issues</th><th>Last updated</th></tr></thead>
+      <tbody id="rows"><tr><td colspan="5">Enter password and click "Load audits".</td></tr></tbody>
+    </table>
+  </div>
+
+  <script>
+    (function () {
+      var meta = document.querySelector('meta[name="accessibility-app-base"]');
+      var APP_BASE = (meta && meta.getAttribute('content')) ? meta.getAttribute('content').replace(/\/$/, '') : '';
+      var pwdEl = document.getElementById('pwd');
+      var loadBtn = document.getElementById('load');
+      var rowsEl = document.getElementById('rows');
+      var msgEl = document.getElementById('msg');
+
+      function esc(s) {
+        return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      }
+
+      async function load() {
+        msgEl.textContent = '';
+        var pwd = (pwdEl.value || '').trim();
+        if (!pwd) {
+          msgEl.textContent = 'Enter password first.';
+          return;
+        }
+        var url = APP_BASE + '/api/audits?password=' + encodeURIComponent(pwd);
+        try {
+          var res = await fetch(url);
+          var data = await res.json();
+          if (!res.ok) throw new Error(data.error || 'Failed to load audits');
+          var audits = Array.isArray(data.audits) ? data.audits : [];
+          if (!audits.length) {
+            rowsEl.innerHTML = '<tr><td colspan="5">No audits found yet.</td></tr>';
+            return;
+          }
+          rowsEl.innerHTML = audits.map(function (a) {
+            var dt = a.updatedAt ? new Date(a.updatedAt).toLocaleString() : '—';
+            return '<tr>'
+              + '<td><a href="' + APP_BASE + '/report/' + encodeURIComponent(a.id) + '/?password=' + encodeURIComponent(pwd) + '">' + esc(a.id) + '</a></td>'
+              + '<td>' + esc(a.status) + '</td>'
+              + '<td>' + Number(a.pages || 0) + '</td>'
+              + '<td>' + Number(a.issues || 0) + '</td>'
+              + '<td>' + esc(dt) + '</td>'
+              + '</tr>';
+          }).join('');
+        } catch (e) {
+          msgEl.textContent = e.message || 'Failed to load audits.';
+        }
+      }
+
+      loadBtn.addEventListener('click', load);
+      pwdEl.addEventListener('keydown', function (e) { if (e.key === 'Enter') load(); });
+    })();
+  </script>
+</body>
+</html>

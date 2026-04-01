@@ -1067,6 +1067,20 @@ async function ensureReportFilesFromDb(id) {
   }
 }
 
+async function ensureDeliverableFromResults(id, filename) {
+  const reportDir = join(REPORTS_BASE, id);
+  const resultsPath = join(reportDir, 'accessibility-results.json');
+  if (!existsSync(resultsPath)) return false;
+  try {
+    const { generateReport } = await import('./generate-report.js');
+    generateReport(null, { outputDir: reportDir });
+    return existsSync(join(reportDir, filename));
+  } catch (err) {
+    console.error(`[run ${id}] Failed to regenerate deliverables:`, err.message);
+    return false;
+  }
+}
+
 const DELIVERABLE_FILES = ['accessibility-developers.html', 'accessibility-client.html', 'accessibility-statement.html'];
 
 app.get('/report/:id/screenshots/:file', async (req, res) => {
@@ -1088,6 +1102,7 @@ app.get('/report/:id/screenshots/:file', async (req, res) => {
 app.get('/report/:id/:file', async (req, res) => {
   const { id, file } = req.params;
   if (DELIVERABLE_FILES.includes(file)) {
+    const reportDir = join(REPORTS_BASE, id);
     let html = serveReportFile(id, file);
     if (!html) {
       html = await ftpDownload(`${id}/${file}`);
@@ -1096,10 +1111,18 @@ app.get('/report/:id/:file', async (req, res) => {
       const hydrated = await ensureReportFilesFromDb(id);
       if (hydrated) html = serveReportFile(id, file);
     }
+    if (!html) {
+      const rebuilt = await ensureDeliverableFromResults(id, file);
+      if (rebuilt) html = serveReportFile(id, file);
+    }
     if (html) {
       res.setHeader('Content-Type', 'text/html');
       return res.send(html);
     }
+    if (existsSync(join(reportDir, 'accessibility-report.html'))) {
+      return res.status(404).send('Deliverable is not available yet. Please refresh in a moment.');
+    }
+    return res.status(404).send('Deliverable not found');
   }
   const reportPath = join(REPORTS_BASE, id, 'accessibility-report.html');
   if (existsSync(reportPath)) {
