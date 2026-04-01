@@ -131,6 +131,82 @@ async function dbGetRun(id) {
   };
 }
 
+function computeIssueCountFromResult(resultJson) {
+  if (!resultJson || typeof resultJson !== 'object') return 0;
+  const summary = resultJson.summary || {};
+  const fail = Number(summary.fail || 0);
+  const warn = Number(summary.warn || 0);
+  const axe = Object.values(resultJson.axeResults || {}).reduce(
+    (sum, r) => sum + Number((r && r.violations && r.violations.length) || 0),
+    0
+  );
+  return fail + warn + axe;
+}
+
+async function listAuditEntries() {
+  const byId = new Map();
+
+  if (dbPool) {
+    try {
+      const { rows } = await dbPool.query(
+        `SELECT id, status, updated_at, created_at, processed_urls, requested_urls, result_json
+         FROM runs
+         ORDER BY updated_at DESC
+         LIMIT 1000`
+      );
+      rows.forEach((row) => {
+        const resultJson = row.result_json || null;
+        const urls = Array.isArray(resultJson?.urls) ? resultJson.urls : [];
+        byId.set(row.id, {
+          id: row.id,
+          status: row.status || 'unknown',
+          updatedAt: row.updated_at || row.created_at || null,
+          pages: urls.length || Number(row.processed_urls || row.requested_urls || 0),
+          issues: computeIssueCountFromResult(resultJson),
+          source: 'db',
+        });
+      });
+    } catch (err) {
+      console.error('Failed to list audits from DB:', err.message);
+    }
+  }
+
+  try {
+    if (existsSync(REPORTS_BASE)) {
+      const entries = readdirSync(REPORTS_BASE);
+      entries.forEach((name) => {
+        const dir = join(REPORTS_BASE, name);
+        let isDir = false;
+        try { isDir = statSync(dir).isDirectory(); } catch {}
+        if (!isDir || !isValidReportId(name)) return;
+        const resultsFile = join(dir, 'accessibility-results.json');
+        if (!existsSync(resultsFile)) return;
+        if (byId.has(name)) return;
+        const resultJson = readJsonIfExists(resultsFile);
+        const urls = Array.isArray(resultJson?.urls) ? resultJson.urls : [];
+        byId.set(name, {
+          id: name,
+          status: 'done',
+          updatedAt: (() => {
+            try { return statSync(resultsFile).mtime; } catch { return null; }
+          })(),
+          pages: urls.length,
+          issues: computeIssueCountFromResult(resultJson),
+          source: 'file',
+        });
+      });
+    }
+  } catch (err) {
+    console.error('Failed to list audits from files:', err.message);
+  }
+
+  return [...byId.values()].sort((a, b) => {
+    const ta = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+    const tb = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+    return tb - ta;
+  });
+}
+
 // In-memory run status (running, done, error)
 const runStatus = new Map();
 /** Run IDs we already attempted to notify (success or skip) */
@@ -700,6 +776,15 @@ app.get('/api/health/db', async (req, res) => {
   }
 });
 
+app.get('/api/audits', async (_req, res) => {
+  try {
+    const audits = await listAuditEntries();
+    return res.json({ audits });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 const FTP_CONFIG = process.env.FTP_HOST && process.env.FTP_USER
   ? {
       host: process.env.FTP_HOST,
@@ -1084,6 +1169,69 @@ app.get('/report/:id/', async (req, res) => {
     return res.send(downloaded);
   }
   res.redirect(`/report/${id}`);
+});
+
+app.get('/audits', async (req, res) => {
+  return res.redirect('/audits/');
+});
+
+app.get('/audits/', async (_req, res) => {
+  const escapeHtml = (s) =>
+    String(s || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+
+  const audits = await listAuditEntries();
+  const rows = audits.length
+    ? audits.map((a) => {
+        const when = a.updatedAt ? new Date(a.updatedAt).toLocaleString() : '—';
+        return `<tr>
+          <td><a href="/report/${encodeURIComponent(a.id)}/">${escapeHtml(a.id)}</a></td>
+          <td>${escapeHtml(a.status)}</td>
+          <td>${Number(a.pages || 0)}</td>
+          <td>${Number(a.issues || 0)}</td>
+          <td>${escapeHtml(when)}</td>
+        </tr>`;
+      }).join('')
+    : '<tr><td colspan="5">No audits found yet.</td></tr>';
+
+  return res.type('html').send(`<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>All domain audits</title>
+  <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex" />
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin:0; background:#fafaf8; color:#1a1a1a; padding:24px; }
+    .wrap { max-width: 980px; margin: 0 auto; background:#fff; border:1px solid #e8e6e1; border-radius:12px; overflow:hidden; }
+    header { padding:16px 18px; border-bottom:1px solid #e8e6e1; display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; }
+    h1 { margin:0; font-size:1.2rem; }
+    .actions a { text-decoration:none; color:#1a1a1a; border:1px solid #d9d7d2; border-radius:8px; padding:7px 10px; background:#fff; font-size:.9rem; }
+    .actions a:hover { background:#f3f3f1; }
+    table { width:100%; border-collapse:collapse; font-size:.94rem; }
+    th, td { padding:10px 12px; border-bottom:1px solid #f0efea; text-align:left; }
+    th { background:#fafaf8; color:#5c5c5c; font-weight:600; }
+    tbody tr:hover { background:#fafaf8; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>All domain audits</h1>
+      <div class="actions">
+        <a href="/">Run a new audit</a>
+      </div>
+    </header>
+    <table>
+      <thead><tr><th>Domain</th><th>Status</th><th>Pages</th><th>Issues</th><th>Last updated</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  </div>
+</body>
+</html>`);
 });
 
 app.get('/', (req, res) => {
