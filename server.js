@@ -344,6 +344,19 @@ function parseCookies(req) {
   return out;
 }
 
+function passwordFromRequest(req) {
+  const headerPwd = req.headers['x-app-password'];
+  if (typeof headerPwd === 'string' && headerPwd) return headerPwd;
+  const qp = req.query?.password;
+  if (typeof qp === 'string' && qp) return qp;
+  return '';
+}
+
+function setAuthCookie(res) {
+  const securePart = AUTH_COOKIE_SECURE ? '; Secure' : '';
+  res.setHeader('Set-Cookie', `${AUTH_COOKIE_NAME}=1; Path=/; HttpOnly; SameSite=Lax; Max-Age=43200${securePart}`);
+}
+
 function loginPageHtml(nextPath = '/', errorMessage = '') {
   const safeNext = String(nextPath || '/').replace(/"/g, '&quot;');
   const safeError = errorMessage ? `<p style="color:#c62828; margin:0 0 10px;">${errorMessage}</p>` : '';
@@ -402,8 +415,7 @@ app.post('/auth/login', (req, res) => {
   if (password !== APP_PASSWORD) {
     return res.status(401).send(loginPageHtml(nextPath, 'Incorrect password. Try again.'));
   }
-  const securePart = AUTH_COOKIE_SECURE ? '; Secure' : '';
-  res.setHeader('Set-Cookie', `${AUTH_COOKIE_NAME}=1; Path=/; HttpOnly; SameSite=Lax; Max-Age=43200${securePart}`);
+  setAuthCookie(res);
   return res.redirect(nextPath);
 });
 
@@ -411,12 +423,34 @@ app.use((req, res, next) => {
   if (!AUTH_ENABLED) return next();
   if (req.path === '/robots.txt') return next();
   if (req.path === '/auth/login') return next();
+  if (
+    req.method === 'GET' &&
+    (req.path === '/' ||
+      req.path === '/index.html' ||
+      req.path === '/loading.html' ||
+      req.path.startsWith('/assets/'))
+  ) {
+    return next();
+  }
   const cookies = parseCookies(req);
   if (cookies[AUTH_COOKIE_NAME] === '1') return next();
+  const providedPassword = passwordFromRequest(req);
+  if (providedPassword && providedPassword === APP_PASSWORD) {
+    setAuthCookie(res);
+    if (!req.path.startsWith('/api/') && typeof req.query?.password === 'string') {
+      const cleanQuery = { ...req.query };
+      delete cleanQuery.password;
+      const qs = new URLSearchParams(cleanQuery).toString();
+      const target = `${req.path}${qs ? `?${qs}` : ''}`;
+      return res.redirect(target);
+    }
+    return next();
+  }
   if (req.path.startsWith('/api/')) {
     return res.status(401).json({ error: 'Authentication required' });
   }
-  return res.status(401).send(loginPageHtml(req.originalUrl || '/'));
+  const nextPath = req.originalUrl || '/';
+  return res.redirect(`/auth/login?next=${encodeURIComponent(nextPath)}`);
 });
 
 app.use(express.static(join(__dirname, 'public')));
@@ -497,6 +531,7 @@ app.post('/api/run', upload.single('file'), (req, res) => {
     notifyRequested: !!(notifyOnComplete && notifyEmail),
     notifyEmail: notifyOnComplete && notifyEmail ? notifyEmail : null,
   };
+  notificationAttempted.delete(id);
   runStatus.set(id, initialState);
   dbUpsertRun(id, { ...initialState, statementMeta }).catch((err) => {
     console.error(`[run ${id}] DB initial write failed:`, err.message);

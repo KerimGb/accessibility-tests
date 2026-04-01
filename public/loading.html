@@ -154,6 +154,7 @@
     const params = new URLSearchParams(window.location.search);
     const id = params.get('id');
     const reportId = params.get('reportId') || id;
+    const password = params.get('password') || '';
 
     if (!id) {
       document.getElementById('title').textContent = 'Missing run ID';
@@ -219,7 +220,10 @@
       const tryReportFallback = () => {
         if (fallbackRedirects >= 3) return;
         fallbackRedirects += 1;
-        window.location.replace(APP_BASE + '/report/' + reportId + '/');
+        const rpt = password
+          ? (APP_BASE + '/report/' + reportId + '/?password=' + encodeURIComponent(password))
+          : (APP_BASE + '/report/' + reportId + '/');
+        window.location.replace(rpt);
       };
 
       const progressInterval = setInterval(updateProgress, 1000);
@@ -228,7 +232,12 @@
         if (pollingStopped) return;
         try {
           updateProgress();
-          const res = await fetch(APP_BASE + '/api/status/' + id);
+          const statusUrl = password
+            ? (APP_BASE + '/api/status/' + id + '?password=' + encodeURIComponent(password))
+            : (APP_BASE + '/api/status/' + id);
+          const res = await fetch(statusUrl, {
+            headers: password ? { 'X-App-Password': password } : undefined,
+          });
           const contentType = res.headers.get('content-type') || '';
           if (!contentType.includes('application/json')) {
             const text = await res.text();
@@ -264,7 +273,10 @@
             pctEl.textContent = '100% completed';
             remainingEl.textContent = 'Done!';
             document.getElementById('msg').textContent = 'Loading report…';
-            window.location.replace(APP_BASE + '/report/' + reportId + '/');
+            const doneUrl = password
+              ? (APP_BASE + '/report/' + reportId + '/?password=' + encodeURIComponent(password))
+              : (APP_BASE + '/report/' + reportId + '/');
+            window.location.replace(doneUrl);
             return;
           }
           if (data.status === 'error') {
