@@ -1333,6 +1333,7 @@ export function generateReport(reportData, options = {}) {
     }
   } catch (err) {
     if (options.verbose) console.error('Deliverable generation:', err);
+    if (options.throwOnDeliverableError) throw err;
   }
 
   return reportFile;

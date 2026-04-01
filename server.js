@@ -1059,7 +1059,7 @@ async function ensureReportFilesFromDb(id) {
       writeFileSync(join(reportDir, 'manual-progress.json'), JSON.stringify(dbRun.manualProgress, null, 2), 'utf8');
     }
     const { generateReport } = await import('./generate-report.js');
-    generateReport(dbRun.resultJson, { outputDir: reportDir });
+    generateReport(dbRun.resultJson, { outputDir: reportDir, verbose: true, throwOnDeliverableError: true });
     return existsSync(join(reportDir, 'accessibility-report.html'));
   } catch (err) {
     console.error(`[run ${id}] Failed to hydrate report from DB:`, err.message);
@@ -1084,7 +1084,7 @@ async function ensureDeliverableFromResults(id, filename) {
   }
   try {
     const { generateReport } = await import('./generate-report.js');
-    generateReport(null, { outputDir: reportDir });
+    generateReport(null, { outputDir: reportDir, verbose: true, throwOnDeliverableError: true });
     return existsSync(join(reportDir, filename));
   } catch (err) {
     console.error(`[run ${id}] Failed to regenerate deliverables:`, err.message);
