@@ -1,0 +1,254 @@
+---
+/**
+ * Glass-style sign-in modal when AUTH_ENABLED and no session cookie.
+ * Uses POST /api/auth/login; session is an HttpOnly cookie.
+ */
+---
+
+<div
+  id="wcag-login-modal"
+  class="wcag-login-overlay"
+  hidden
+  aria-hidden="true"
+>
+  <div class="wcag-login-scene" aria-hidden="true">
+    <div class="wcag-login-grad"></div>
+    <div class="wcag-login-vignette"></div>
+  </div>
+  <div
+    class="wcag-login-dialog"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="wcag-login-title"
+  >
+    <h2 id="wcag-login-title" class="wcag-login-title">Sign in</h2>
+    <p class="wcag-login-lead">Enter your username and password to use the app.</p>
+    <p id="wcag-login-err" class="wcag-login-err" role="alert" hidden></p>
+    <form id="wcag-login-form" class="wcag-login-form">
+      <label class="wcag-login-label" for="wcag-login-user">Username</label>
+      <input
+        class="wcag-login-input"
+        id="wcag-login-user"
+        name="username"
+        type="text"
+        autocomplete="username"
+        required
+      />
+      <label class="wcag-login-label" for="wcag-login-pass">Password</label>
+      <input
+        class="wcag-login-input"
+        id="wcag-login-pass"
+        name="password"
+        type="password"
+        autocomplete="current-password"
+        required
+      />
+      <button type="submit" class="wcag-login-submit">Continue</button>
+    </form>
+  </div>
+</div>
+
+<script>
+  function qs(id) {
+    return document.getElementById(id);
+  }
+
+  function openModal() {
+    const overlay = qs('wcag-login-modal');
+    if (!overlay) return;
+    overlay.hidden = false;
+    overlay.setAttribute('aria-hidden', 'false');
+    const err = qs('wcag-login-err');
+    if (err) {
+      err.hidden = true;
+      err.textContent = '';
+    }
+    const userInput = qs('wcag-login-user');
+    if (userInput && 'focus' in userInput) userInput.focus();
+  }
+
+  function closeModal() {
+    const overlay = qs('wcag-login-modal');
+    if (!overlay) return;
+    overlay.hidden = true;
+    overlay.setAttribute('aria-hidden', 'true');
+  }
+
+  async function refreshAuthGate() {
+    try {
+      const res = await fetch('/api/auth/status', { credentials: 'same-origin' });
+      const data = await res.json().catch(() => ({}));
+      if (data.authEnabled && !data.authenticated) openModal();
+      else closeModal();
+    } catch {
+      /* no server — leave hidden */
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', refreshAuthGate);
+  document.addEventListener('wcag:login-required', () => openModal());
+
+  const form = qs('wcag-login-form');
+  form?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const errEl = qs('wcag-login-err');
+    const fd = new FormData(form);
+    const username = String(fd.get('username') ?? '').trim();
+    const password = String(fd.get('password') ?? '');
+    if (errEl) {
+      errEl.hidden = true;
+      errEl.textContent = '';
+    }
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+        credentials: 'same-origin',
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (errEl) {
+          errEl.textContent = data.error || 'Sign-in failed.';
+          errEl.hidden = false;
+        }
+        return;
+      }
+      closeModal();
+      document.dispatchEvent(new CustomEvent('wcag:logged-in'));
+    } catch {
+      if (errEl) {
+        errEl.textContent = 'Network error — is the server running?';
+        errEl.hidden = false;
+      }
+    }
+  });
+</script>
+
+<style>
+  .wcag-login-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 99990;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+  }
+  .wcag-login-overlay[hidden] {
+    display: none !important;
+  }
+
+  .wcag-login-scene {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: var(--us-cream, #f5f4e5);
+  }
+
+  .wcag-login-grad {
+    position: absolute;
+    inset: -20%;
+    background:
+      radial-gradient(ellipse 50% 40% at 20% 30%, rgba(255, 185, 133, 0.45), transparent 55%),
+      radial-gradient(ellipse 45% 35% at 85% 20%, rgba(189, 180, 255, 0.5), transparent 50%),
+      radial-gradient(ellipse 40% 45% at 70% 85%, rgba(141, 255, 183, 0.35), transparent 55%),
+      radial-gradient(ellipse 35% 30% at 10% 80%, rgba(167, 240, 251, 0.4), transparent 50%);
+  }
+
+  .wcag-login-vignette {
+    position: absolute;
+    inset: 0;
+    background: rgba(25, 25, 27, 0.12);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+
+  .wcag-login-dialog {
+    position: relative;
+    z-index: 1;
+    width: min(420px, 100%);
+    padding: 32px 28px 30px;
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.28);
+    border: 1px solid rgba(255, 255, 255, 0.55);
+    box-shadow:
+      0 4px 24px rgba(25, 25, 27, 0.08),
+      inset 0 1px 0 rgba(255, 255, 255, 0.65);
+    backdrop-filter: blur(22px) saturate(1.35);
+    -webkit-backdrop-filter: blur(22px) saturate(1.35);
+  }
+
+  .wcag-login-title {
+    font-family: var(--font-display, 'Bricolage Grotesque', system-ui, sans-serif);
+    margin: 0 0 6px;
+    font-size: 1.45rem;
+    letter-spacing: -0.02em;
+    color: var(--fg-1, #19191b);
+  }
+
+  .wcag-login-lead {
+    margin: 0 0 20px;
+    font-size: 0.95rem;
+    color: var(--fg-2, #2e2e2e);
+    line-height: 1.45;
+  }
+
+  .wcag-login-err {
+    margin: 0 0 14px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: rgba(135, 32, 18, 0.08);
+    color: var(--status-error, #872012);
+    font-size: 0.9rem;
+  }
+
+  .wcag-login-label {
+    display: block;
+    margin: 14px 0 6px;
+    font-weight: 600;
+    font-size: 0.82rem;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: var(--fg-2, #2e2e2e);
+  }
+  .wcag-login-label:first-of-type {
+    margin-top: 0;
+  }
+
+  .wcag-login-input {
+    width: 100%;
+    padding: 12px 14px;
+    border: 1px solid rgba(25, 25, 27, 0.12);
+    border-radius: 12px;
+    font-size: 1rem;
+    font-family: inherit;
+    background: rgba(255, 255, 255, 0.55);
+    color: var(--fg-1, #19191b);
+    box-sizing: border-box;
+  }
+
+  .wcag-login-input:focus {
+    outline: 2px solid var(--focus-ring, #6257e8);
+    outline-offset: 2px;
+    border-color: transparent;
+  }
+
+  .wcag-login-submit {
+    margin-top: 22px;
+    width: 100%;
+    padding: 12px 16px;
+    border: none;
+    border-radius: 12px;
+    font-family: var(--font-display, 'Bricolage Grotesque', system-ui, sans-serif);
+    font-weight: 700;
+    font-size: 1rem;
+    cursor: pointer;
+    color: #fff;
+    background: linear-gradient(135deg, #19191b 0%, #423a75 100%);
+    box-shadow: 0 4px 16px rgba(25, 25, 27, 0.2);
+  }
+
+  .wcag-login-submit:hover {
+    filter: brightness(1.06);
+  }
+</style>

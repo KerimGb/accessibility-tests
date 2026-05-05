@@ -50,7 +50,7 @@ If `AUTH_ENABLED` is true (the default) and `APP_PASSWORD` is empty, the server 
 
 In your browser go to:
 
-**http://localhost:3456**
+**[http://localhost:3456](http://localhost:3456)**
 
 (Use another port only if you set `PORT` in the environment.)
 
@@ -79,11 +79,13 @@ node run-tests.js --report --urls="https://example.com"
 
 ## Troubleshooting
 
-| Issue | What to try |
-|-------|-------------|
-| Playwright “executable doesn’t exist” | Run `npx playwright install chromium` again |
-| Server exits on start | Set `APP_PASSWORD` or `AUTH_ENABLED=false` |
-| Form says API missing JSON | Ensure `npm start` is running and you did **not** open `index.html` as a `file://` URL — use `http://localhost:3456` |
+
+| Issue                                 | What to try                                                                                                          |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| Playwright “executable doesn’t exist” | Run `npx playwright install chromium` again                                                                          |
+| Server exits on start                 | Set `APP_PASSWORD` or `AUTH_ENABLED=false`                                                                           |
+| Form says API missing JSON            | Ensure `npm start` is running and you did **not** open `index.html` as a `file://` URL — use `http://localhost:3456` |
+
 
 ---
 

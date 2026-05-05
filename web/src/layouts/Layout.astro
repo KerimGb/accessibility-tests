@@ -1,4 +1,6 @@
 ---
+import LoginModal from '../components/LoginModal.astro';
+
 interface Props {
   title?: string;
 }
@@ -17,5 +19,6 @@ const { title = 'Accessibility audit · Us' } = Astro.props;
   </head>
   <body>
     <slot />
+    <LoginModal />
   </body>
 </html>

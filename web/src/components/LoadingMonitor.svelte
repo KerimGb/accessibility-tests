@@ -45,10 +45,16 @@
     try {
       const res = await fetch(`/api/status/${encodeURIComponent(domain)}/${encodeURIComponent(runId)}`, {
         cache: 'no-store',
+        credentials: 'same-origin',
       });
       if (!res.ok) {
         if (res.status === 404) {
           errorMsg = 'Run not found.';
+        }
+        if (res.status === 401) {
+          errorMsg = 'Session expired — sign in again.';
+          const next = `/loading?domain=${encodeURIComponent(domain)}&runId=${encodeURIComponent(runId)}`;
+          window.location.href = `/auth/login?next=${encodeURIComponent(next)}`;
         }
         return;
       }

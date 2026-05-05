@@ -107,10 +107,6 @@ import AppHeader from '../components/AppHeader.astro';
             </div>
             <div style="margin-left: 32px; display: grid; gap: 16px;">
               <div class="field">
-                <label class="field-label" for="app_password">App password</label>
-                <input class="input" id="app_password" name="app_password" type="password" autocomplete="current-password" placeholder="If the server requires it" />
-              </div>
-              <div class="field">
                 <label class="field-label" for="notify_email">Email for notification</label>
                 <input class="input" id="notify_email" name="notify_email" type="email" autocomplete="email" />
               </div>
@@ -153,7 +149,6 @@ import AppHeader from '../components/AppHeader.astro';
   const hint = document.getElementById('url-hint');
   const summary = document.getElementById('run-summary');
   const errEl = document.getElementById('form-err');
-  const pwd = document.getElementById('app_password');
 
   function countUrls() {
     const t = urlsEl?.value || '';
@@ -172,13 +167,18 @@ import AppHeader from '../components/AppHeader.astro';
 
   form?.addEventListener('submit', async (e) => {
     e.preventDefault();
+    if (!errEl) return;
     errEl.style.display = 'none';
     const fd = new FormData(form);
-    const p = pwd?.value?.trim();
-    const url = '/api/run' + (p ? `?password=${encodeURIComponent(p)}` : '');
     try {
-      const res = await fetch(url, { method: 'POST', body: fd, credentials: 'same-origin' });
+      const res = await fetch('/api/run', { method: 'POST', body: fd, credentials: 'same-origin' });
       const data = await res.json().catch(() => ({}));
+      if (res.status === 401) {
+        document.dispatchEvent(new CustomEvent('wcag:login-required'));
+        errEl.textContent = data.error || 'Sign in to run an audit.';
+        errEl.style.display = 'block';
+        return;
+      }
       if (!res.ok) {
         errEl.textContent = data.error || res.statusText || 'Request failed';
         errEl.style.display = 'block';
@@ -187,8 +187,7 @@ import AppHeader from '../components/AppHeader.astro';
       const domain = data.domain || data.id || data.reportId;
       const runId = data.runId;
       if (domain && runId) {
-        const passwordSuffix = p ? '&password=' + encodeURIComponent(p) : '';
-        window.location.href = `/loading?domain=${encodeURIComponent(domain)}&runId=${encodeURIComponent(runId)}${passwordSuffix}`;
+        window.location.href = `/loading?domain=${encodeURIComponent(domain)}&runId=${encodeURIComponent(runId)}`;
       } else if (domain) {
         window.location.href = `/report/${encodeURIComponent(domain)}/`;
       }

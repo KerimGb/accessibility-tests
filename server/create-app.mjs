@@ -61,7 +61,8 @@ function parseBooleanEnv(name, defaultValue = false) {
   return defaultValue;
 }
 let AUTH_ENABLED = parseBooleanEnv('AUTH_ENABLED', true);
-let APP_PASSWORD = process.env.APP_PASSWORD || '';
+let APP_USERNAME = 'root';
+let APP_PASSWORD = 'root';
 const AUTH_COOKIE_NAME = 'wcag_access';
 const AUTH_COOKIE_SECURE = parseBooleanEnv('AUTH_COOKIE_SECURE', false);
 
@@ -373,13 +374,8 @@ export function createAccessibilityApp(repoRoot) {
     throw new Error('createAccessibilityApp(repoRoot): repoRoot must be a non-empty path string');
   }
   AUTH_ENABLED = parseBooleanEnv('AUTH_ENABLED', true);
-  APP_PASSWORD = process.env.APP_PASSWORD || '';
-  if (AUTH_ENABLED && !String(APP_PASSWORD).trim()) {
-    console.error(
-      '[config] AUTH_ENABLED is true but APP_PASSWORD is not set. Set APP_PASSWORD in the environment or set AUTH_ENABLED=false for local open access.'
-    );
-    process.exit(1);
-  }
+  APP_USERNAME = String(process.env.APP_USERNAME ?? 'root').trim() || 'root';
+  APP_PASSWORD = String(process.env.APP_PASSWORD ?? 'root').trim() || 'root';
   const loadingPath = '/loading';
 
   const app = express();
@@ -389,7 +385,7 @@ const allowedOrigin = process.env.ALLOWED_ORIGIN || '*';
 app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-App-Password');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-App-Username, X-App-Password');
   if (req.method === 'OPTIONS') return res.sendStatus(200);
   next();
 });
@@ -411,12 +407,40 @@ function parseCookies(req) {
   return out;
 }
 
-function passwordFromRequest(req) {
+function parseBasicAuth(req) {
+  const raw = req.headers.authorization;
+  if (typeof raw !== 'string' || !raw.startsWith('Basic ')) return null;
+  try {
+    const decoded = Buffer.from(raw.slice(6), 'base64').toString('utf8');
+    const i = decoded.indexOf(':');
+    if (i === -1) return null;
+    return { user: decoded.slice(0, i), pass: decoded.slice(i + 1) };
+  } catch {
+    return null;
+  }
+}
+
+/** Username + password from Basic auth, headers, or query (legacy single-password queries use default username). */
+function credentialsFromRequest(req) {
+  const basic = parseBasicAuth(req);
+  if (basic) return basic;
   const headerPwd = req.headers['x-app-password'];
-  if (typeof headerPwd === 'string' && headerPwd) return headerPwd;
+  if (typeof headerPwd === 'string' && headerPwd) {
+    const headerUser = req.headers['x-app-username'];
+    const user = typeof headerUser === 'string' && headerUser.trim() ? headerUser.trim() : APP_USERNAME;
+    return { user, pass: headerPwd };
+  }
   const qp = req.query?.password;
-  if (typeof qp === 'string' && qp) return qp;
-  return '';
+  if (typeof qp === 'string' && qp) {
+    const qu = req.query?.username;
+    const user = typeof qu === 'string' && qu.trim() ? qu.trim() : APP_USERNAME;
+    return { user, pass: qp };
+  }
+  return null;
+}
+
+function credentialsValid(user, pass) {
+  return String(user || '') === String(APP_USERNAME) && String(pass || '') === String(APP_PASSWORD);
 }
 
 function setAuthCookie(res) {
@@ -424,42 +448,156 @@ function setAuthCookie(res) {
   res.setHeader('Set-Cookie', `${AUTH_COOKIE_NAME}=1; Path=/; HttpOnly; SameSite=Lax; Max-Age=43200${securePart}`);
 }
 
-function loginPageHtml(nextPath = '/', errorMessage = '') {
+function loginPageHtml(nextPath = '', errorMessage = '') {
   const safeNext = String(nextPath || '/').replace(/"/g, '&quot;');
-  const safeError = errorMessage ? `<p class="login-error">${errorMessage}</p>` : '';
+  const esc =
+    typeof errorMessage === 'string'
+      ? errorMessage
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/"/g, '&quot;')
+      : '';
+  const safeError = esc ? `<p class="login-error" role="alert">${esc}</p>` : '';
   return `<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex" />
-  <title>Protected accessibility reports</title>
+  <title>Sign in · Accessibility reports</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Public+Sans:ital,wght@0,300..900;1,400..700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/design-system.css">
   <style>
-    body { min-height: 100vh; display: grid; place-items: center; padding: 20px; background: #fcfcf8; }
-    .card { width: min(460px, 100%); background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 22px; box-shadow: 0 2px 16px rgba(0,0,0,.06); }
-    .card h1 { font-family: "Bricolage Grotesque", ui-serif, Georgia, serif; margin: 0 0 8px; font-size: 1.2rem; color: var(--text); }
-    .card p { margin: 0 0 14px; color: var(--text-muted); }
-    .login-error { margin: 0 0 10px; color: var(--error); }
-    label { display: block; margin: 0 0 6px; font-weight: 600; color: var(--text); }
-    input { width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 1rem; font-family: inherit; }
-    button { margin-top: 12px; width: 100%; padding: 10px 12px; border: 0; border-radius: 8px; background: var(--accent); color: var(--color-primary-label); font-weight: 600; cursor: pointer; font-family: "Bricolage Grotesque", ui-serif, Georgia, serif; }
-    button:hover { background: var(--accent-hover); }
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Public Sans", system-ui, sans-serif;
+      color: #19191B;
+      overflow-x: hidden;
+    }
+    .login-scene {
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      position: relative;
+      background: #F5F4E5;
+    }
+    .login-scene::before {
+      content: "";
+      position: absolute;
+      inset: -20%;
+      background:
+        radial-gradient(ellipse 50% 40% at 20% 30%, rgba(255,185,133,0.45), transparent 55%),
+        radial-gradient(ellipse 45% 35% at 85% 20%, rgba(189,180,255,0.5), transparent 50%),
+        radial-gradient(ellipse 40% 45% at 70% 85%, rgba(141,255,183,0.35), transparent 55%),
+        radial-gradient(ellipse 35% 30% at 10% 80%, rgba(167,240,251,0.4), transparent 50%);
+      filter: blur(2px);
+      z-index: 0;
+    }
+    .login-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(25,25,27,0.12);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      z-index: 1;
+    }
+    .glass-panel {
+      position: relative;
+      z-index: 2;
+      width: min(420px, 100%);
+      padding: 32px 28px 30px;
+      border-radius: 20px;
+      background: rgba(255,255,255,0.28);
+      border: 1px solid rgba(255,255,255,0.55);
+      box-shadow:
+        0 4px 24px rgba(25,25,27,0.08),
+        inset 0 1px 0 rgba(255,255,255,0.65);
+      backdrop-filter: blur(22px) saturate(1.35);
+      -webkit-backdrop-filter: blur(22px) saturate(1.35);
+    }
+    .glass-panel h1 {
+      font-family: "Bricolage Grotesque", ui-serif, Georgia, serif;
+      margin: 0 0 6px;
+      font-size: 1.45rem;
+      letter-spacing: -0.02em;
+    }
+    .glass-panel .lead {
+      margin: 0 0 22px;
+      font-size: 0.95rem;
+      color: #494949;
+      line-height: 1.45;
+    }
+    .login-error {
+      margin: 0 0 14px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: rgba(135,32,18,0.08);
+      color: #872012;
+      font-size: 0.9rem;
+    }
+    label {
+      display: block;
+      margin: 14px 0 6px;
+      font-weight: 600;
+      font-size: 0.82rem;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      color: #2E2E2E;
+    }
+    label:first-of-type { margin-top: 0; }
+    input {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1px solid rgba(25,25,27,0.12);
+      border-radius: 12px;
+      font-size: 1rem;
+      font-family: inherit;
+      background: rgba(255,255,255,0.55);
+      color: #19191B;
+    }
+    input:focus {
+      outline: 2px solid #6257E8;
+      outline-offset: 2px;
+      border-color: transparent;
+    }
+    button {
+      margin-top: 22px;
+      width: 100%;
+      padding: 12px 16px;
+      border: none;
+      border-radius: 12px;
+      font-family: "Bricolage Grotesque", ui-serif, Georgia, serif;
+      font-weight: 700;
+      font-size: 1rem;
+      cursor: pointer;
+      color: #fff;
+      background: linear-gradient(135deg, #19191B 0%, #423A75 100%);
+      box-shadow: 0 4px 16px rgba(25,25,27,0.2);
+    }
+    button:hover {
+      filter: brightness(1.06);
+    }
   </style>
 </head>
 <body>
-  <form class="card" method="post" action="/auth/login">
-    <h1>Protected area</h1>
-    <p>Enter the password to continue.</p>
-    ${safeError}
-    <input type="hidden" name="next" value="${safeNext}" />
-    <label for="password">Password</label>
-    <input id="password" name="password" type="password" required autofocus />
-    <button type="submit">Continue</button>
-  </form>
+  <div class="login-scene">
+    <div class="login-backdrop" aria-hidden="true"></div>
+    <form class="glass-panel" method="post" action="/auth/login" aria-labelledby="login-title">
+      <h1 id="login-title">Sign in</h1>
+      <p class="lead">Enter your username and password to access reports and APIs.</p>
+      ${safeError}
+      <input type="hidden" name="next" value="${safeNext}" />
+      <label for="username">Username</label>
+      <input id="username" name="username" type="text" autocomplete="username" required autofocus />
+      <label for="password">Password</label>
+      <input id="password" name="password" type="password" autocomplete="current-password" required />
+      <button type="submit">Continue</button>
+    </form>
+  </div>
 </body>
 </html>`;
 }
@@ -489,9 +627,10 @@ app.get('/auth/login', (req, res) => {
 app.post('/auth/login', (req, res) => {
   if (!AUTH_ENABLED) return res.redirect('/');
   const nextPath = typeof req.body?.next === 'string' && req.body.next.startsWith('/') ? req.body.next : '/';
+  const username = String(req.body?.username || '').trim();
   const password = String(req.body?.password || '');
-  if (password !== APP_PASSWORD) {
-    return res.status(401).send(loginPageHtml(nextPath, 'Incorrect password. Try again.'));
+  if (!credentialsValid(username, password)) {
+    return res.status(401).send(loginPageHtml(nextPath, 'Invalid username or password. Try again.'));
   }
   setAuthCookie(res);
   return res.redirect(nextPath);
@@ -556,33 +695,66 @@ app.get('/auth/jira/callback', async (req, res) => {
   }
 });
 
+app.get('/api/auth/status', (req, res) => {
+  if (!AUTH_ENABLED) return res.json({ authEnabled: false, authenticated: true });
+  const cookies = parseCookies(req);
+  const authenticated = cookies[AUTH_COOKIE_NAME] === '1';
+  return res.json({ authEnabled: true, authenticated });
+});
+
+app.post('/api/auth/login', (req, res) => {
+  if (!AUTH_ENABLED) return res.json({ ok: true });
+  const username = String(req.body?.username ?? '').trim();
+  const password = String(req.body?.password ?? '');
+  if (!credentialsValid(username, password)) {
+    return res.status(401).json({ error: 'Invalid username or password.' });
+  }
+  setAuthCookie(res);
+  return res.json({ ok: true });
+});
+
 app.use((req, res, next) => {
   if (!AUTH_ENABLED) return next();
   if (req.path === '/robots.txt') return next();
   if (req.path === '/auth/login') return next();
   if (req.path.startsWith('/auth/jira/')) return next();
+  /** Public GETs: loading shell + static assets (styles/scripts while session cookie is set). */
   if (
     req.method === 'GET' &&
-    (req.path === '/' ||
-      req.path === '/loading' ||
-      req.path.startsWith('/assets/'))
+    (req.path === '/loading' ||
+      req.path.startsWith('/assets/') ||
+      req.path.startsWith('/styles/') ||
+      req.path.startsWith('/_astro/'))
   ) {
     return next();
   }
+
   const cookies = parseCookies(req);
-  if (cookies[AUTH_COOKIE_NAME] === '1') return next();
-  const providedPassword = passwordFromRequest(req);
-  if (providedPassword && providedPassword === APP_PASSWORD) {
+  const hasSession = cookies[AUTH_COOKIE_NAME] === '1';
+  const creds = credentialsFromRequest(req);
+  let authed = hasSession;
+  if (!authed && creds && credentialsValid(creds.user, creds.pass)) {
     setAuthCookie(res);
-    if (!req.path.startsWith('/api/') && typeof req.query?.password === 'string') {
+    authed = true;
+    if (
+      !req.path.startsWith('/api/') &&
+      (typeof req.query?.password === 'string' || typeof req.query?.username === 'string')
+    ) {
       const cleanQuery = { ...req.query };
       delete cleanQuery.password;
+      delete cleanQuery.username;
       const qs = new URLSearchParams(cleanQuery).toString();
       const target = `${req.path}${qs ? `?${qs}` : ''}`;
       return res.redirect(target);
     }
-    return next();
   }
+  if (authed) return next();
+
+  /** Main domain: serve glass login at `/` (URL stays on the site root). */
+  if (req.method === 'GET' && req.path === '/') {
+    return res.status(200).send(loginPageHtml('/'));
+  }
+
   if (req.path.startsWith('/api/')) {
     return res.status(401).json({ error: 'Authentication required' });
   }

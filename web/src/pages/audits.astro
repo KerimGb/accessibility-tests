@@ -26,16 +26,11 @@ import AppHeader from '../components/AppHeader.astro';
 
           <div class="card-flat" style="padding: 22px; margin-bottom: 24px;">
             <p class="muted" style="font-size: 14px; margin: 0 0 12px;">
-              Audits are protected. Enter the app password (or <a class="link" href="/auth/login?next=/audits">sign in</a>) to load the list.
+              Audits use your signed-in session (glass sign-in on load). You can also{' '}
+              <a class="link" href="/auth/login?next=/audits">open full-page sign in</a>.
             </p>
-            <div style="display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap;">
-              <div class="field" style="flex: 1; min-width: 240px; max-width: 360px;">
-                <label class="field-label" for="pwd">App password</label>
-                <input class="input" id="pwd" type="password" autocomplete="current-password" />
-              </div>
-              <button type="button" class="btn btn-primary" id="load">Load audits</button>
-            </div>
-            <div id="msg" style="margin-top: 10px; font-size: 14px; color: var(--us-peach-text); min-height: 20px;"></div>
+            <button type="button" class="btn btn-primary" id="refresh-audits">Refresh list</button>
+            <div id="audits-msg" style="margin-top: 10px; font-size: 14px; color: var(--us-peach-text); min-height: 20px;"></div>
           </div>
 
           <div class="card-flat" style="padding: 0;" id="list-wrap">
@@ -51,7 +46,7 @@ import AppHeader from '../components/AppHeader.astro';
             </div>
             <div id="rows">
               <div class="list-row audits-row" style="grid-template-columns: 1fr;">
-                <span class="muted" style="text-align: center; padding: 8px 0;">Click "Load audits" to see the archive.</span>
+                <span class="muted" style="text-align: center; padding: 8px 0;">Loading the archive…</span>
               </div>
             </div>
           </div>
@@ -66,10 +61,9 @@ import AppHeader from '../components/AppHeader.astro';
 </Layout>
 
 <script>
-  const pwdEl = document.getElementById('pwd') as HTMLInputElement | null;
   const rowsEl = document.getElementById('rows') as HTMLDivElement | null;
-  const msgEl = document.getElementById('msg') as HTMLDivElement | null;
-  const loadBtn = document.getElementById('load') as HTMLButtonElement | null;
+  const msgEl = document.getElementById('audits-msg') as HTMLDivElement | null;
+  const refreshBtn = document.getElementById('refresh-audits') as HTMLButtonElement | null;
 
   function escapeHtml(s: unknown): string {
     return String(s ?? '')
@@ -98,19 +92,23 @@ import AppHeader from '../components/AppHeader.astro';
     return '<span class="tag">' + escapeHtml(status || 'unknown') + '</span>';
   }
 
-  loadBtn?.addEventListener('click', async () => {
-    if (!msgEl || !rowsEl) return;
-    msgEl.textContent = '';
-    const p = pwdEl?.value?.trim() || '';
-    const url = '/api/audits' + (p ? '?password=' + encodeURIComponent(p) : '');
-    const headers: Record<string, string> = {};
-    if (p) headers['X-App-Password'] = p;
-    rowsEl.innerHTML = '<div class="list-row audits-row" style="grid-template-columns: 1fr;"><span class="muted" style="text-align: center; padding: 8px 0;">Loading…</span></div>';
+  async function loadAudits() {
+    if (!rowsEl) return;
+    if (msgEl) msgEl.textContent = '';
+    rowsEl.innerHTML =
+      '<div class="list-row audits-row" style="grid-template-columns: 1fr;"><span class="muted" style="text-align: center; padding: 8px 0;">Loading…</span></div>';
     try {
-      const res = await fetch(url, { headers, credentials: 'same-origin' });
+      const res = await fetch('/api/audits', { credentials: 'same-origin' });
       const data = await res.json().catch(() => ({}));
+      if (res.status === 401) {
+        document.dispatchEvent(new CustomEvent('wcag:login-required'));
+        if (msgEl) msgEl.textContent = 'Sign in to load audits.';
+        rowsEl.innerHTML =
+          '<div class="list-row audits-row" style="grid-template-columns: 1fr;"><span class="muted" style="text-align: center; padding: 8px 0;">Sign in to view the archive.</span></div>';
+        return;
+      }
       if (!res.ok) {
-        msgEl.textContent = data.error || 'Failed to load';
+        if (msgEl) msgEl.textContent = (data as { error?: string }).error || 'Failed to load';
         rowsEl.innerHTML = '';
         return;
       }
@@ -125,18 +123,18 @@ import AppHeader from '../components/AppHeader.astro';
         updatedAt?: string | null;
       }>;
       if (!audits.length) {
-        rowsEl.innerHTML = '<div class="list-row audits-row" style="grid-template-columns: 1fr;"><span class="muted" style="text-align: center; padding: 8px 0;">No audits yet — start your first run from the home page.</span></div>';
+        rowsEl.innerHTML =
+          '<div class="list-row audits-row" style="grid-template-columns: 1fr;"><span class="muted" style="text-align: center; padding: 8px 0;">No audits yet — start your first run from the home page.</span></div>';
         return;
       }
       rowsEl.innerHTML = audits
         .map((a) => {
           const domain = a.domain || a.id;
-          const pq = p ? '?password=' + encodeURIComponent(p) : '';
           const latestRunId = a.latestRunId || '';
           const reportHref = latestRunId
-            ? `/report/${encodeURIComponent(domain)}/${encodeURIComponent(latestRunId)}/${pq}`
-            : `/report/${encodeURIComponent(domain)}/${pq}`;
-          const historyHref = `/report/${encodeURIComponent(domain)}/history${pq}`;
+            ? `/report/${encodeURIComponent(domain)}/${encodeURIComponent(latestRunId)}/`
+            : `/report/${encodeURIComponent(domain)}/`;
+          const historyHref = `/report/${encodeURIComponent(domain)}/history`;
           const totalRuns = Number(a.totalRuns || 1);
           return `<div class="list-row audits-row">
             <a class="link" style="font-weight: 500; text-decoration: none; color: var(--fg-1);" href="${historyHref}">
@@ -156,13 +154,14 @@ import AppHeader from '../components/AppHeader.astro';
         })
         .join('');
     } catch {
-      msgEl.textContent = 'Network error';
+      if (msgEl) msgEl.textContent = 'Network error';
       rowsEl.innerHTML = '';
     }
-  });
+  }
 
-  // Auto-load if a session cookie is already present (so login flow lands here).
-  setTimeout(() => loadBtn?.click(), 0);
+  refreshBtn?.addEventListener('click', () => loadAudits());
+  document.addEventListener('DOMContentLoaded', () => loadAudits());
+  document.addEventListener('wcag:logged-in', () => loadAudits());
 </script>
 
 <style>
