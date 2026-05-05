@@ -75,7 +75,7 @@ export function computeTopDisabilities(disabilityStats) {
 
 export function buildChartDataPayload(
   reportData,
-  { pass, fail, warn, totalAxeViolations, scoreClamp, disabilityStats }
+  { pass, fail, warn, info, totalAxeViolations, scoreClamp, disabilityStats }
 ) {
   const ch = computeChapterIssueData(reportData);
   const top = computeTopDisabilities(disabilityStats);
@@ -84,6 +84,7 @@ export function buildChartDataPayload(
     pass,
     fail,
     warn,
+    info: info || 0,
     totalAxeViolations,
     chapterLabels: ch.labels,
     chapterCustom: ch.customSeries,
@@ -246,7 +247,7 @@ export function buildChartsSectionHtml(payload, dataId = 'a11y-chart-data') {
         </figure>
         <figure class="chart-card chart-wide">
           <h3>Issues by checklist chapter</h3>
-          <p style="font-size:0.85rem; color:var(--text-muted); margin:0 0 8px;">Custom warnings and failures (orange) plus axe violations (red), by Deque module.</p>
+          <p style="font-size:0.85rem; color:var(--text-muted); margin:0 0 8px;">Custom warnings and failures (warning tone) plus axe violations (error tone), by Deque module.</p>
           <div class="chart-wrap"><canvas id="a11y-chart-chapter" role="img" aria-label="Horizontal stacked bar chart of issues by chapter"></canvas></div>
           <table class="chart-data-table">
             <caption>Issues by chapter</caption>
@@ -265,9 +266,9 @@ export function buildChartsSectionHtml(payload, dataId = 'a11y-chart-data') {
     try { return JSON.parse(el.textContent); } catch (e) { return null; }
   }
   function colorScore(n) {
-    if (n >= 80) return '#2d9d78';
-    if (n >= 50) return '#ed6c02';
-    return '#c62828';
+    if (n >= 80) return '#41bd73';
+    if (n >= 50) return '#eb8916';
+    return '#df2020';
   }
   function initCharts() {
     if (typeof Chart === 'undefined') return;
@@ -282,7 +283,7 @@ export function buildChartsSectionHtml(payload, dataId = 'a11y-chart-data') {
           labels: ['Score', 'Remaining to 100'],
           datasets: [{
             data: [d.scoreClamp, rem],
-            backgroundColor: [colorScore(d.scoreClamp), '#e8e6e1'],
+            backgroundColor: [colorScore(d.scoreClamp), '#eaeaea'],
             borderWidth: 0
           }]
         },
@@ -313,7 +314,7 @@ export function buildChartsSectionHtml(payload, dataId = 'a11y-chart-data') {
           datasets: [{
             label: 'Count',
             data: [d.pass, d.warn, d.fail, d.totalAxeViolations],
-            backgroundColor: ['#2d9d78', '#ed6c02', '#c62828', '#5c4d7d']
+            backgroundColor: ['#41bd73', '#eb8916', '#df2020', '#6257e8']
           }]
         },
         options: {
@@ -333,7 +334,7 @@ export function buildChartsSectionHtml(payload, dataId = 'a11y-chart-data') {
           datasets: [{
             label: 'Signals',
             data: d.disabilityTopCounts,
-            backgroundColor: ['#2d9d78', '#248f6a', '#1b7a5c']
+            backgroundColor: ['#41bd73', '#048255', '#1e625a']
           }]
         },
         options: {
@@ -363,8 +364,8 @@ export function buildChartsSectionHtml(payload, dataId = 'a11y-chart-data') {
         data: {
           labels: d.chapterLabels,
           datasets: [
-            { label: 'Custom warn/fail', data: d.chapterCustom, backgroundColor: '#ed6c02' },
-            { label: 'Axe violations', data: d.chapterAxe, backgroundColor: '#c62828' }
+            { label: 'Custom warn/fail', data: d.chapterCustom, backgroundColor: '#eb8916' },
+            { label: 'Axe violations', data: d.chapterAxe, backgroundColor: '#df2020' }
           ]
         },
         options: {

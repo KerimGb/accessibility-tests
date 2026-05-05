@@ -1,4 +1,4 @@
-# Render Blueprint - deploy as Web Service
+# Render Blueprint — optional hosted deploy only (not needed for local use)
 services:
   - type: web
     name: accessibility-tests

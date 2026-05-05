@@ -1,44 +1,52 @@
 /**
- * Shared visual identity for HTML reports and deliverables (about-us.be / Us).
- * @see https://about-us.be/
+ * Shared visual identity for HTML reports and deliverables — US Design System (Light).
+ * @see DESIGN_SYSTEM_AGENT.md in us-design-system repo.
  */
 
-/** Head links: favicon + fonts (Bricolage Grotesque headings, Public Sans + Plus Jakarta body — matches site form). */
+/** Head links: favicon + fonts (Bricolage Grotesque + Public Sans). */
 export const REPORT_BRAND_HEAD = `
   <link rel="icon" href="https://about-us.be/wp-content/smush-avif/2025/09/logo-us-32x32.png.avif" sizes="32x32">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Public+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Public+Sans:ital,wght@0,300..900;1,400..700&display=swap" rel="stylesheet">
 `;
 
 /**
- * Replaces the first :root line in generate-report.js embedded styles.
- * Typography aligned with the public audit form (index.html).
+ * Prepended to generate-report.js embedded styles (after opening `<style>`).
  */
 export const REPORT_MAIN_REPORT_CSS = `
     :root {
-      --pass: #2e7d32;
-      --fail: #c62828;
-      --warn: #ed6c02;
-      --info: #1565c0;
-      --bg: #fafaf8;
-      --surface: #fff;
-      --text: #1a1a1a;
-      --text-muted: #5c5c5c;
-      --accent: #2d9d78;
-      --accent-hover: #248f6a;
-      --accent-soft: #e8f5f0;
-      --border: #e8e6e1;
+      --pass: #41bd73;
+      --fail: #df2020;
+      --warn: #eb8916;
+      --info: #3c81e7;
+      --pass-soft: #e6ffef;
+      --fail-soft: #fdecec;
+      --warn-soft: #fff4e8;
+      --info-soft: #e8f0fc;
+      --bg: #ffffff;
+      --surface: #ffffff;
+      --text: #191a1b;
+      --text-muted: #707070;
+      --accent: #191a1b;
+      --accent-hover: #494949;
+      --accent-soft: #f3f3f3;
+      --border: #eaeaea;
+      --link: #4f72cd;
+      --link-hover: #294899;
+      --lavender: #bdb4ff;
+      --mint: #8dffb7;
+      --watercourse: #048255;
       --brand-heading: "Bricolage Grotesque", ui-serif, Georgia, serif;
-      --brand-body: "Public Sans", "Plus Jakarta Sans", system-ui, sans-serif;
+      --brand-body: "Public Sans", system-ui, sans-serif;
     }
-    body { font-family: var(--brand-body); }
+    body { font-family: var(--brand-body); color: var(--text); }
     h1, h2, h3, h4, header .brand, .score-value, section h2, .summary-item span, .chart-card h3, #charts-heading { font-family: var(--brand-heading); }
-    a { color: var(--accent); }
-    a:hover { color: var(--accent-hover); }
+    a { color: var(--link); }
+    a:hover { color: var(--link-hover); }
     .report-brand-bar {
       height: 4px;
-      background: linear-gradient(90deg, var(--accent) 0%, #6bc9a8 45%, #2d9d78 100%);
+      background: linear-gradient(90deg, var(--lavender) 0%, var(--mint) 45%, var(--watercourse) 100%);
       border-radius: 16px 16px 0 0;
     }
     header {
@@ -70,28 +78,38 @@ export const REPORT_MAIN_REPORT_CSS = `
 /** Deliverables + statement: replaces opening :root in generate-deliverables STYLES */
 export const REPORT_DELIVERABLE_CSS = `
   :root {
-    --pass: #2e7d32;
-    --fail: #c62828;
-    --warn: #ed6c02;
-    --accent: #2d9d78;
-    --accent-hover: #248f6a;
-    --accent-soft: #e8f5f0;
-    --bg: #fafaf8;
+    --pass: #41bd73;
+    --fail: #df2020;
+    --warn: #eb8916;
+    --info: #3c81e7;
+    --pass-soft: #e6ffef;
+    --fail-soft: #fdecec;
+    --warn-soft: #fff4e8;
+    --info-soft: #e8f0fc;
+    --accent: #191a1b;
+    --accent-hover: #494949;
+    --accent-soft: #f3f3f3;
+    --bg: #ffffff;
     --surface: #fff;
-    --text: #1a1a1a;
-    --text-muted: #5c5c5c;
-    --border: #e8e6e1;
+    --text: #191a1b;
+    --text-muted: #707070;
+    --border: #eaeaea;
+    --link: #4f72cd;
+    --link-hover: #294899;
+    --lavender: #bdb4ff;
+    --mint: #8dffb7;
+    --watercourse: #048255;
     --brand-heading: "Bricolage Grotesque", ui-serif, Georgia, serif;
-    --brand-body: "Public Sans", "Plus Jakarta Sans", system-ui, sans-serif;
+    --brand-body: "Public Sans", system-ui, sans-serif;
   }
   * { box-sizing: border-box; }
   body { font-family: var(--brand-body); margin: 0; padding: 0; background: var(--bg); color: var(--text); line-height: 1.6; }
   h1, h2, h3, h4 { font-family: var(--brand-heading); }
-  a { color: var(--accent); }
-  a:hover { color: var(--accent-hover); }
+  a { color: var(--link); }
+  a:hover { color: var(--link-hover); }
   .deliverable-brand-bar {
     height: 4px;
-    background: linear-gradient(90deg, var(--accent) 0%, #6bc9a8 45%, #2d9d78 100%);
+    background: linear-gradient(90deg, var(--lavender) 0%, var(--mint) 45%, var(--watercourse) 100%);
     border-radius: 12px 12px 0 0;
   }
   .deliverable-header {
@@ -126,6 +144,7 @@ export const REPORT_DELIVERABLE_CSS = `
     color: var(--text);
     font-size: 0.88rem;
     text-decoration: none;
+    font-family: var(--brand-heading);
   }
   .deliverable-header .back-to-results:hover {
     background: var(--bg);

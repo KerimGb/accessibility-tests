@@ -1,0 +1,33 @@
+---
+import Layout from '../layouts/Layout.astro';
+import AppHeader from '../components/AppHeader.astro';
+import LoadingMonitor from '../components/LoadingMonitor.svelte';
+
+export const prerender = false;
+
+const url = new URL(Astro.request.url);
+const domain = url.searchParams.get('domain') || url.searchParams.get('id') || '';
+const runId = url.searchParams.get('runId') || '';
+
+if (!domain || !runId) {
+  // Tolerate the legacy ?id=domain shape: we cannot recover runId here, so render a soft error.
+}
+---
+
+<Layout title={`Audit in progress · ${domain || 'Us'}`}>
+  <div class="app-shell">
+    <AppHeader domain={domain || null} runId={runId || null} active={null} crumb="Running" />
+    <main class="app-main">
+      {domain && runId ? (
+        <LoadingMonitor client:only="svelte" domain={domain} runId={runId} />
+      ) : (
+        <div class="container-narrow" style="padding: 64px 32px;">
+          <h1>Missing run id</h1>
+          <p class="p-large muted" style="margin-top: 12px;">
+            We could not find a run id in the URL. Go back to the <a class="link" href="/">audit form</a> to start a new run.
+          </p>
+        </div>
+      )}
+    </main>
+  </div>
+</Layout>

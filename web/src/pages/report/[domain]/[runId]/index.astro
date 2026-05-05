@@ -1,0 +1,128 @@
+---
+import Layout from '../../../../layouts/Layout.astro';
+import AppHeader from '../../../../components/AppHeader.astro';
+import ResultsDashboard from '../../../../components/ResultsDashboard.svelte';
+import { readFileSync, existsSync } from 'node:fs';
+import { join } from 'node:path';
+import { buildAstroMainReportPayload } from '../../../../../../report-astro-payload.js';
+import { isValidReportId } from '../../../../../../server/fs-utils.js';
+import { runDir, isValidRunId } from '../../../../../../server/run-ids.js';
+import { listRunsForDomain } from '../../../../../../server/audit-list.js';
+import { dbPool } from '../../../../../../server/db.js';
+import { REPORTS_BASE } from '../../../../../../server/paths.js';
+import { getSamplePrinciples, getSampleDisabilities, getSampleSprint } from '../../../../lib/sample-buckets';
+import { MANUAL_TODO_GROUPS, normalizeManualProgress } from '../../../../../../manual-checklist.js';
+
+export const prerender = false;
+
+const rawDomain = Astro.params.domain ?? '';
+const rawRunId = Astro.params.runId ?? '';
+const domain = typeof rawDomain === 'string' ? rawDomain : String(rawDomain);
+const runId = typeof rawRunId === 'string' ? rawRunId : String(rawRunId);
+
+if (!isValidReportId(domain) || !isValidRunId(runId)) {
+  return new Response('Invalid run id', { status: 400 });
+}
+
+const resultsPath = join(runDir(domain, runId), 'accessibility-results.json');
+if (!existsSync(resultsPath)) {
+  return new Response(
+    `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"/><title>Report not found</title><link rel="stylesheet" href="/styles/tokens.css"/><link rel="stylesheet" href="/styles/app.css"/></head><body><div class="container" style="padding:64px 32px;"><h1>Report not found</h1><p class="muted">No results for <code>${domain}/${runId}</code>. <a class="link" href="/report/${domain}/history">View history</a> or <a class="link" href="/">start a new audit</a>.</p></div></body></html>`,
+    { status: 404, headers: { 'Content-Type': 'text/html; charset=utf-8' } }
+  );
+}
+
+let payload;
+try {
+  const json = JSON.parse(readFileSync(resultsPath, 'utf8'));
+  payload = buildAstroMainReportPayload(json);
+} catch {
+  return new Response('Failed to read or parse report data.', {
+    status: 500,
+    headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+  });
+}
+
+// Build the dashboard's required props from the payload.
+const principles = getSamplePrinciples({
+  errors: payload.severityCounts.errors,
+  warnings: payload.severityCounts.warnings,
+  passed: payload.severityCounts.passed,
+});
+const disabilities = getSampleDisabilities(payload.disabilityStats || {});
+const sprint = getSampleSprint(payload.fixOrderItems || [], 8);
+
+// Pull score history for the trend chart from prior runs of this domain.
+const allRuns = await listRunsForDomain(dbPool, REPORTS_BASE, domain);
+const trend = allRuns
+  .slice()
+  .reverse()
+  .filter((r) => typeof r.score === 'number')
+  .map((r) => {
+    const d = r.updatedAt ? new Date(r.updatedAt) : null;
+    const label = d && !Number.isNaN(d.getTime())
+      ? d.toLocaleString('en-GB', { month: 'short', day: '2-digit' })
+      : r.runId.slice(5, 10);
+    return { date: label, score: r.score as number };
+  });
+
+const previousScore = (() => {
+  const idx = allRuns.findIndex((r) => r.runId === runId);
+  if (idx < 0) return null;
+  const prev = allRuns[idx + 1];
+  return prev && typeof prev.score === 'number' ? prev.score : null;
+})();
+
+// Manual & assistive-tech checklist progress (separate from automated score).
+const manualProgressPath = join(runDir(domain, runId), 'manual-progress.json');
+let manualChecked: string[] = [];
+if (existsSync(manualProgressPath)) {
+  try {
+    const raw = JSON.parse(readFileSync(manualProgressPath, 'utf8'));
+    manualChecked = normalizeManualProgress(raw?.checked);
+  } catch {}
+}
+const manualTotal = MANUAL_TODO_GROUPS.reduce((s, g) => s + g.items.length, 0);
+const manualPercent = manualTotal === 0 ? 0 : Math.round((manualChecked.length / manualTotal) * 100);
+
+const dashboardProps = {
+  primaryHost: payload.primaryHost,
+  auditedDate: payload.auditedDate,
+  scoreClamp: payload.scoreClamp,
+  pass: payload.pass,
+  fail: payload.fail,
+  warn: payload.warn,
+  info: payload.info,
+  totalAxeViolations: payload.totalAxeViolations,
+  totalAxePasses: payload.totalAxePasses,
+  severityCounts: payload.severityCounts,
+  trend: trend.length > 0 ? trend : [{ date: payload.auditedDate?.slice(0, 6) || 'now', score: payload.scoreClamp }],
+  pagesTable: payload.pagesTable,
+  rulesTable: payload.rulesTable,
+  fixOrderItems: payload.fixOrderItems,
+  principles,
+  disabilities,
+  urls: payload.urls,
+  reportData: payload.reportData,
+  domain,
+  runId,
+  sprintPoints: sprint.points,
+  pagesScanned: payload.urls.length,
+  rulesChecked: payload.rulesTable.length,
+  previousScore,
+  manualGroups: MANUAL_TODO_GROUPS,
+  manualInitialChecked: manualChecked,
+  manualTotal,
+  manualPercent,
+  coveredScCount: payload.coveredScCount ?? 0,
+};
+---
+
+<Layout title={`Accessibility report · ${payload.primaryHost}`}>
+  <div class="app-shell">
+    <AppHeader domain={domain} runId={runId} active="results" />
+    <main class="app-main">
+      <ResultsDashboard client:load {...dashboardProps} />
+    </main>
+  </div>
+</Layout>

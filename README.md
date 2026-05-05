@@ -15,84 +15,100 @@ Automated accessibility testing for websites based on **Deque University** check
 | 7 | Form Labels, Instructions, Validation | [module-forms-checklist.pdf](https://media.dequeuniversity.com/courses/generic/testing-basic-method-and-tools/2.0/en/docs/module-forms-checklist.pdf) |
 | 8 | Dynamic Updates, AJAX, SPAs | [module-dynamic-updates-checklist.pdf](https://media.dequeuniversity.com/courses/generic/testing-basic-method-and-tools/2.0/en/docs/module-dynamic-updates-checklist.pdf) |
 
-## Setup
+## Setup (dependencies)
+
+Install packages and Chromium once per machine:
 
 ```bash
 npm install
-npx playwright install chromium   # Download Chromium browser (~250MB, required for tests)
+npx playwright install chromium   # ~250MB; required for tests
 ```
 
-## Web UI (recommended)
+**Exact local steps:** follow **[SETUP-GUIDE.md](SETUP-GUIDE.md)** (step-by-step checklist).
 
-Start the server and open the form in your browser:
+### Web UI authentication
+
+The server defaults to `AUTH_ENABLED=true` and **requires** `APP_PASSWORD`; it exits on startup if the password is missing. For **local development**, use:
 
 ```bash
-npm start
+AUTH_ENABLED=false npm start
 ```
 
-Then open http://localhost:3456 (or the port shown). You can:
+### How scans work (and limitations)
+
+- **Page load:** URLs open with `domcontentloaded` (see `PAGE_GOTO_TIMEOUT_MS`, optional `WAIT_FOR_NETWORKIDLE` in the test runner and server-spawned runs).
+- **Media:** `BLOCK_MEDIA_REQUESTS` (default `true`) skips video/audio fetches, which can change layout or behavior on media-heavy pages.
+- **Assisted review:** The suite combines axe-core, custom heuristics, and manual checklist items. It is **not** a complete manual WCAG audit or legal compliance sign-off.
+- **Reports:** Axe results are placed in **one primary checklist chapter** per rule (so chapter charts do not double-count the same axe issue). Use the per-page violation list for the canonical axe finding list.
+
+## Web UI
+
+After `AUTH_ENABLED=false npm start` (or `APP_PASSWORD` set — see above), open:
+
+**http://localhost:3456**
+
+You can:
 
 - **Add URLs** in the text area (one per line or comma-separated)
 - **Upload a CSV or XML file** (e.g. sitemap.xml) with URLs
-- Click **Run accessibility tests** → loading page → redirect to report with unique URL
+- Click **Run accessibility tests** → loading page → report URL
 
-Each report has a unique ID in the URL, e.g. `http://localhost:3456/report/a1b2c3d4`
+Reports use IDs in the URL, e.g. `http://localhost:3456/report/example.com/` when keyed by domain.
 
 Current behavior:
 
-- Reports are keyed by **domain name** (for example: `https://example.com` -> `/report/example.com/`).
+- Reports are keyed by **domain + run id** (e.g. `https://example.com` →
+  `/report/example.com/2026-05-04T13-45-12Z-ab12/`).
+- `/report/<domain>/` redirects to the latest run for that domain.
+- `/report/<domain>/history` shows every audit ever stored for the domain.
 - Each run must contain URLs from a **single domain**.
-- Re-running tests for the same domain updates/merges that domain report.
+- Re-running tests for the same domain creates a new run row and a new
+  on-disk folder under `reports/<domain>/<runId>/`.
 
-### Optional: persist runs in Postgres (Render)
+### Optional: Postgres persistence
 
 To store run status/results/manual checklist progress in Postgres:
 
-- Set `DATABASE_URL` on the **Node server environment** (Render web service env vars).
-- Optional for SSL-required connections: set `DATABASE_SSL=true`.
+- Set **`DATABASE_URL`** in the server environment.
+- Optional for SSL-required connections: **`DATABASE_SSL=true`**.
 
-When `DATABASE_URL` is set, the server automatically creates a `runs` table and stores:
+When `DATABASE_URL` is set, the server creates a `runs` table and stores run lifecycle, summary metadata, raw report JSON, and manual checklist progress.
 
-- run lifecycle status (`running`, `done`, `error`)
-- summary run metadata (requested/processed URL counts, truncation, errors)
-- raw report JSON (`result_json`)
-- manual checklist progress (`manual_progress_json`)
+If `DATABASE_URL` is not set, the app uses **local files** under `reports/` (and optional FTP — see below).
 
-If `DATABASE_URL` is not set, the app continues using local files/FTP fallback.
+Monitoring:
 
-Monitoring endpoint:
+- `GET /api/health/db` → DB health (`up`, `down`, or `disabled`).
+- `GET /api/report/:domain/:runId/urls` → list URLs stored for a run.
+- `GET /api/audits/:domain/runs` → every run for a given domain (used by the history page).
 
-- `GET /api/health/db` -> DB health (`up`, `down`, or `disabled`).
-- `GET /api/report/:id/urls` -> list URLs currently stored for a domain report.
+### Deployment (later — hosted Node)
 
-### Live / production deployment
+When you deploy to **your own** Node-capable server (VPS, managed Node hosting, etc.):
 
-The app **requires the Node server** to be running. Uploading only the `public/` folder (e.g. via FTP) is not enough: `/api/run` and `/api/status/:id` are handled by the server. If the server is not running, the form will show: *"API not available: the server returned a page instead of JSON..."*.
+1. Install dependencies and Chromium on that machine (`npm install`, `npx playwright install chromium`).
+2. Start with `npm start` or `node server.js` behind HTTPS as appropriate.
+3. Set **`APP_PASSWORD`** (and keep auth enabled), **`PORT`** if the platform requires it, optional **`DATABASE_URL`**, optional **`PUBLIC_BASE_URL`** for absolute links/emails.
 
-- **On your host:** Run `npm install`, then `npm start` (or run `node server.js` in a process manager), and ensure the port is reachable (or put a reverse proxy in front that forwards requests to Node).
-- **If the app is under a subpath** (e.g. `https://example.com/accessibility/`): Add this inside `<head>` in both `public/index.html` and `public/loading.html`:
-  ```html
-  <meta name="accessibility-app-base" content="/accessibility">
-  ```
-  Replace `/accessibility` with your actual base path (no trailing slash). This makes API and report URLs use that path.
+The app **must** be served by Node — the UI is rendered by the Astro shell at `web/` and is built with `npm run build`. Static hosting alone is not enough (`/api/run`, `/api/status/:domain/:runId`, reports).
 
-- **Frontend on one host, API on Render** (e.g. form at `https://wcag.about-us.be/`, API at `https://accessibility-tests.onrender.com`): You do **not** run `npm install` / `npm start` yourself — Render runs the app when you deploy (via your Dockerfile or Build/Start commands). In the **copy of `index.html`** that you host on wcag.about-us.be, add inside `<head>`:
-  ```html
-  <meta name="accessibility-app-base" content="https://accessibility-tests.onrender.com">
-  ```
-  Use your real Render service URL. Then the form will post to Render, and after submit users are redirected to Render for the loading page and report. The server allows cross-origin requests by default, so the form on wcag.about-us.be can call the Render API.
+**Different origin for HTML vs API:** If users load the form from another host, add inside `<head>` of the Astro layout (`web/src/layouts/Layout.astro`):
 
-  **Render memory limits:** The test runner launches Chromium (Playwright), which uses a lot of RAM. On Render’s free tier the service may hit the instance memory limit and restart. To reduce memory use:
-  - Set **`MAX_URLS_PER_RUN`** (e.g. `5` or `10`) in the Render environment. The server will run tests only for the first N URLs per run, which keeps each run shorter and lowers peak memory.
-  - Set **`URL_CONCURRENCY`** (recommended `1` on small instances, `2-4` on larger machines) to control how many URLs are scanned in parallel.
-  - Keep **`WAIT_FOR_NETWORKIDLE=false`** (default) for faster runs on tracker-heavy sites. Set it to `true` only when you specifically need network-idle settling.
-  - Set **`ENABLE_CONTRAST_CHECKS=false`** to skip custom text/non-text contrast checks for faster runs (axe contrast rules still run).
-  - Keep **`ENABLE_AXE_PASSES=false`** (default). Including axe `passes` can dramatically increase memory usage on large pages.
-  - Keep **`BLOCK_MEDIA_REQUESTS=true`** (default) to avoid loading heavy video/audio assets during checks.
-  - Keep **`AUTO_DISABLE_CONTRAST_ON_LARGE_DOM=true`** (default), which auto-skips heavy custom contrast checks when DOM size exceeds `LARGE_DOM_THRESHOLD` (default `6000` nodes).
-  - Increase **`PAGE_GOTO_TIMEOUT_MS`** (default `90000`) if very heavy pages still timeout before `domcontentloaded`.
-  - Consider **upgrading the instance type** on Render if you need to test many URLs per run.
-  - The runner already uses Chromium flags and explicit cleanup (page/context/browser close) to limit memory.
+```html
+<meta name="accessibility-app-base" content="https://your-node-api-host.example">
+```
+
+(no trailing slash). Omit this meta when the UI and API are the **same** origin (normal local use).
+
+**Subpath on one host:** If the app lives under e.g. `/accessibility`, use:
+
+```html
+<meta name="accessibility-app-base" content="/accessibility">
+```
+
+**Heavy scans:** On small instances, tune **`MAX_URLS_PER_RUN`**, **`URL_CONCURRENCY`** (often `1`), and related env vars documented elsewhere in this README (memory section previously tied to Render applies to any low-RAM host).
+
+The repo may include **`render.yaml`** as an **optional** example blueprint — it is **not** required for local development.
 
 ### Optional: store manual checklist progress on FTP
 
@@ -142,7 +158,8 @@ Each report includes links to these deliverables. When served by the web server,
 
 ## What is tested
 
-- **axe-core (Deque)** – WCAG 2.x automated rules (contrast, ARIA, semantics, forms, etc.)
-- **Custom checks** – Semantic structure, page title, lang, landmarks, headings, links, images, forms, responsive layout, multimedia, input methods, dynamic content
+- **axe-core (Deque)** – WCAG 2.x automated rules (contrast, ARIA, semantics, forms, etc.); each finding is shown once under a **primary** chapter in charts.
+- **Custom checks** – Semantic structure, page title, lang, landmarks, headings, links (including image/SVG name heuristics), images, forms, responsive layout, multimedia, input methods, dynamic content.
+- **Custom result statuses** – `pass` / `fail` / `warn` / `info` (informational; `info` does not count as a warning in summary totals).
 
-Some checklist items require manual verification (e.g., meaningful link text, audio description quality). The report includes pass/warn/fail status and references to the Deque PDFs for full criteria.
+Some checklist items require manual verification (e.g., audio description quality, full 1.4.10 reflow). The report includes pass/warn/fail/info and references to the Deque PDFs for full criteria.

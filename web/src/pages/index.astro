@@ -1,0 +1,211 @@
+---
+import Layout from '../layouts/Layout.astro';
+import AppHeader from '../components/AppHeader.astro';
+---
+<Layout title="Accessibility audit · Us">
+  <div class="app-shell">
+    <AppHeader />
+    <main class="app-main">
+      <div class="container-narrow" style="position: relative; padding: 56px 32px 96px;">
+        <div
+          aria-hidden="true"
+          style="position: absolute; top: -120px; right: -100px; width: 460px; height: 460px; border-radius: 50%; background: var(--us-grad-iridescent); opacity: 0.5; filter: blur(40px); pointer-events: none; animation: drift 22s ease-in-out infinite;"
+        >
+        </div>
+        <div class="fade-up" style="text-align: left; margin-bottom: 40px;">
+          <span class="eyebrow"><span class="dot"></span>WCAG 2.2 · AA · EN 301 549</span>
+          <h1 style="font-size: clamp(40px, 5.4vw, 68px); margin-top: 14px; margin-bottom: 12px;">
+            Audit a site for accessibility — <em
+              style="font-style: normal; background: var(--us-grad-iridescent); -webkit-background-clip: text; background-clip: text; color: transparent;"
+              >in plain English.</em
+            >
+          </h1>
+          <p class="p-large muted" style="max-width: 620px;">
+            Drop in URLs or a sitemap. We run automated checks and custom chapter tests, then deliver HTML reports for your team.
+          </p>
+        </div>
+
+        <form id="run-form" class="card" style="padding: 0; overflow: hidden;">
+          <div style="padding: 32px 32px 36px;">
+            <div style="display: flex; align-items: baseline; gap: 14px; margin-bottom: 6px;">
+              <span style="font-family: var(--font-mono); font-size: 12px; color: var(--fg-3); letter-spacing: 0.04em;"
+                >01</span
+              >
+              <h2 style="font-size: 24px; font-weight: 700; letter-spacing: -0.01em;">What should we scan?</h2>
+            </div>
+            <p class="muted" style="font-size: 14px; margin-bottom: 22px; margin-left: 32px;">
+              Paste URLs (one domain per run) or upload CSV / XML.
+            </p>
+            <div style="margin-left: 32px;">
+              <div class="field">
+                <label class="field-label" for="urls">URLs to scan</label>
+                <textarea
+                  id="urls"
+                  name="urls"
+                  class="textarea"
+                  placeholder="https://example.com&#10;https://example.com/about"
+                  style="min-height: 168px;"
+                ></textarea>
+                <div id="url-hint" class="field-hint">0 URLs · one per line or comma-separated in text</div>
+              </div>
+              <div class="field" style="margin-top: 20px;">
+                <label class="field-label" for="file">Optional file (CSV, XML sitemap, or .txt)</label>
+                <input id="file" name="file" type="file" class="input" accept=".csv,.xml,.txt" />
+              </div>
+            </div>
+          </div>
+
+          <hr class="hr" style="margin: 0;" />
+
+          <details class="statement-details" style="margin: 0; border: 0; border-radius: 0; border-top: 1px solid var(--border-subtle);">
+            <summary style="padding: 20px 32px;">Accessibility statement fields (optional)</summary>
+            <div class="statement-inner" style="padding: 0 32px 28px 56px;">
+              <p class="statement-note">
+                Used to pre-fill the generated accessibility statement. All optional.
+              </p>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                <div class="field">
+                  <label class="field-label" for="statement_org_name">Organization</label>
+                  <input class="input" id="statement_org_name" name="statement_org_name" type="text" />
+                </div>
+                <div class="field">
+                  <label class="field-label" for="statement_org_short">Short name</label>
+                  <input class="input" id="statement_org_short" name="statement_org_short" type="text" />
+                </div>
+                <div class="field">
+                  <label class="field-label" for="statement_phone">Phone</label>
+                  <input class="input" id="statement_phone" name="statement_phone" type="tel" />
+                </div>
+                <div class="field">
+                  <label class="field-label" for="statement_email">Contact email</label>
+                  <input class="input" id="statement_email" name="statement_email" type="email" />
+                </div>
+                <div class="field" style="grid-column: span 2;">
+                  <label class="field-label" for="statement_visitor_address">Visitor address</label>
+                  <input class="input" id="statement_visitor_address" name="statement_visitor_address" type="text" />
+                </div>
+                <div class="field" style="grid-column: span 2;">
+                  <label class="field-label" for="statement_postal_address">Postal address</label>
+                  <input class="input" id="statement_postal_address" name="statement_postal_address" type="text" />
+                </div>
+                <div class="field">
+                  <label class="field-label" for="statement_response_days">Response days</label>
+                  <input class="input" id="statement_response_days" name="statement_response_days" type="number" min="1" max="365" value="3" />
+                </div>
+              </div>
+            </div>
+          </details>
+
+          <hr class="hr" style="margin: 0;" />
+
+          <div style="padding: 32px 32px 36px;">
+            <div style="display: flex; align-items: baseline; gap: 14px; margin-bottom: 6px;">
+              <span style="font-family: var(--font-mono); font-size: 12px; color: var(--fg-3); letter-spacing: 0.04em;"
+                >02</span
+              >
+              <h2 style="font-size: 24px; font-weight: 700; letter-spacing: -0.01em;">Notify me</h2>
+            </div>
+            <div style="margin-left: 32px; display: grid; gap: 16px;">
+              <div class="field">
+                <label class="field-label" for="app_password">App password</label>
+                <input class="input" id="app_password" name="app_password" type="password" autocomplete="current-password" placeholder="If the server requires it" />
+              </div>
+              <div class="field">
+                <label class="field-label" for="notify_email">Email for notification</label>
+                <input class="input" id="notify_email" name="notify_email" type="email" autocomplete="email" />
+              </div>
+              <label class="check">
+                <input type="checkbox" name="notify_on_complete" value="1" id="notify_on_complete" checked />
+                <span class="box"></span>
+                <span>Email me when the audit finishes (requires SMTP on the server)</span>
+              </label>
+            </div>
+          </div>
+
+          <div
+            style="background: var(--us-ink); color: var(--us-cream); padding: 28px 32px; display: flex; align-items: center; justify-content: space-between; gap: 24px; flex-wrap: wrap;"
+          >
+            <div>
+              <div style="font-family: var(--font-display); font-size: 22px; font-weight: 700; letter-spacing: -0.01em;">
+                Ready to run
+              </div>
+              <div style="opacity: 0.7; font-size: 13px; margin-top: 4px;" id="run-summary">Add at least one URL</div>
+            </div>
+            <button type="submit" class="btn btn-grad btn-lg" style="min-width: 220px;" id="submit-btn">
+              Start audit
+            </button>
+          </div>
+        </form>
+
+        <p id="form-err" class="muted" style="font-size: 14px; margin-top: 14px; color: var(--status-error); display: none;"></p>
+
+        <p class="muted" style="font-size: 12px; margin-top: 14px; text-align: center;">
+          <a href="/audits" class="link">All domain audits</a>
+        </p>
+      </div>
+    </main>
+  </div>
+</Layout>
+
+<script>
+  const form = document.getElementById('run-form');
+  const urlsEl = document.getElementById('urls');
+  const hint = document.getElementById('url-hint');
+  const summary = document.getElementById('run-summary');
+  const errEl = document.getElementById('form-err');
+  const pwd = document.getElementById('app_password');
+
+  function countUrls() {
+    const t = urlsEl?.value || '';
+    const n = t.split(/[\n,]+/).map((s) => s.trim()).filter((s) => s.startsWith('http')).length;
+    return n;
+  }
+
+  function refreshHint() {
+    const n = countUrls();
+    if (hint) hint.textContent = `${n} URL${n === 1 ? '' : 's'} · one per line`;
+    if (summary) summary.textContent = n ? `${n} URL(s) queued` : 'Add at least one URL';
+  }
+
+  urlsEl?.addEventListener('input', refreshHint);
+  refreshHint();
+
+  form?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    errEl.style.display = 'none';
+    const fd = new FormData(form);
+    const p = pwd?.value?.trim();
+    const url = '/api/run' + (p ? `?password=${encodeURIComponent(p)}` : '');
+    try {
+      const res = await fetch(url, { method: 'POST', body: fd, credentials: 'same-origin' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        errEl.textContent = data.error || res.statusText || 'Request failed';
+        errEl.style.display = 'block';
+        return;
+      }
+      const domain = data.domain || data.id || data.reportId;
+      const runId = data.runId;
+      if (domain && runId) {
+        const passwordSuffix = p ? '&password=' + encodeURIComponent(p) : '';
+        window.location.href = `/loading?domain=${encodeURIComponent(domain)}&runId=${encodeURIComponent(runId)}${passwordSuffix}`;
+      } else if (domain) {
+        window.location.href = `/report/${encodeURIComponent(domain)}/`;
+      }
+    } catch {
+      errEl.textContent = 'Network error — is the API running? For dev, start legacy server on port 3456.';
+      errEl.style.display = 'block';
+    }
+  });
+</script>
+
+<style>
+  .statement-details summary {
+    list-style: none;
+    cursor: pointer;
+    font-weight: 600;
+  }
+  .statement-details summary::-webkit-details-marker {
+    display: none;
+  }
+</style>

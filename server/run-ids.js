@@ -1,0 +1,99 @@
+/**
+ * Run ID helpers. Each audit run lives at reports/<domain>/<runId>/.
+ * runId = "YYYY-MM-DDTHH-MM-SSZ-<4hex>", e.g. "2026-05-04T13-45-12Z-ab12".
+ */
+import { existsSync, readdirSync, statSync } from 'fs';
+import { join } from 'path';
+import { REPORTS_BASE } from './paths.js';
+import { isValidReportId, readJsonIfExists } from './fs-utils.js';
+
+/** Filesystem-safe ISO timestamp (no `:` so it is portable across OSes/FTP). */
+function tsForRunId(date = new Date()) {
+  return date.toISOString().replace(/\.\d+Z$/, 'Z').replace(/:/g, '-');
+}
+
+/** 4-hex random suffix to avoid collisions when two runs land in the same second. */
+function shortHex() {
+  return Math.floor(Math.random() * 0xffff)
+    .toString(16)
+    .padStart(4, '0');
+}
+
+export function newRunId(date = new Date()) {
+  return `${tsForRunId(date)}-${shortHex()}`;
+}
+
+/** Validate a runId path segment (also rejects path traversal). */
+export function isValidRunId(runId) {
+  return typeof runId === 'string' && /^[A-Za-z0-9._-]+$/.test(runId) && runId.length <= 80;
+}
+
+/** Same shape rule as report ids but renamed for clarity. */
+export function isValidDomain(domain) {
+  return isValidReportId(domain);
+}
+
+export function runDir(domain, runId) {
+  return join(REPORTS_BASE, domain, runId);
+}
+
+export function domainDir(domain) {
+  return join(REPORTS_BASE, domain);
+}
+
+/** List runId folder names under reports/<domain>/, newest first by mtime. */
+export function listRunIdsForDomain(domain) {
+  if (!isValidDomain(domain)) return [];
+  const dir = domainDir(domain);
+  if (!existsSync(dir)) return [];
+  let names = [];
+  try {
+    names = readdirSync(dir);
+  } catch {
+    return [];
+  }
+  const runs = [];
+  for (const name of names) {
+    if (!isValidRunId(name)) continue;
+    const full = join(dir, name);
+    let stat;
+    try {
+      stat = statSync(full);
+    } catch {
+      continue;
+    }
+    if (!stat.isDirectory()) continue;
+    if (!existsSync(join(full, 'accessibility-results.json'))) continue;
+    runs.push({ runId: name, mtime: stat.mtimeMs });
+  }
+  runs.sort((a, b) => b.mtime - a.mtime);
+  return runs.map((r) => r.runId);
+}
+
+/** Find the most recent run ID for a domain on disk, or null. */
+export function latestRunIdOnDisk(domain) {
+  return listRunIdsForDomain(domain)[0] || null;
+}
+
+/**
+ * Read summary metadata for one run. Used for the history page + audits list.
+ * Returns null if the run dir / results file is missing.
+ */
+export function readRunSummary(domain, runId) {
+  if (!isValidDomain(domain) || !isValidRunId(runId)) return null;
+  const dir = runDir(domain, runId);
+  const resultsPath = join(dir, 'accessibility-results.json');
+  if (!existsSync(resultsPath)) return null;
+  const result = readJsonIfExists(resultsPath);
+  let mtime = null;
+  try {
+    mtime = statSync(resultsPath).mtime;
+  } catch {}
+  return {
+    domain,
+    runId,
+    result,
+    generatedAt: result?.generatedAt || (mtime ? mtime.toISOString() : null),
+    mtime,
+  };
+}

@@ -9,7 +9,7 @@
 
 import { chromium } from 'playwright';
 import AxeBuilder from '@axe-core/playwright';
-import { CHECKLIST_CHAPTERS, AXE_TAG_TO_CHAPTER } from './checklists.js';
+import { CHECKLIST_CHAPTERS, getPrimaryChapterForAxeViolation } from './checklists.js';
 import { runSemanticChecks } from './tests/chapter1-semantics.js';
 import { runImageChecks } from './tests/chapter2-images.js';
 import { runVisualChecks } from './tests/chapter3-visual.js';
@@ -81,17 +81,6 @@ async function getUrls() {
   }
 }
 
-function categorizeAxeViolation(violation) {
-  const tags = violation.tags || [];
-  const chapters = new Set();
-  tags.forEach((tag) => {
-    const ch = AXE_TAG_TO_CHAPTER[tag];
-    if (ch) ch.forEach((c) => chapters.add(c));
-  });
-  if (chapters.size === 0) chapters.add('semantics');
-  return Array.from(chapters);
-}
-
 async function runAxeScan(page, url) {
   const builder = new AxeBuilder({ page });
   const includeAxePasses = parseBooleanEnv('ENABLE_AXE_PASSES', false);
@@ -108,23 +97,17 @@ async function runAxeScan(page, url) {
   });
 
   (results.violations || []).forEach((v) => {
-    const chapters = categorizeAxeViolation(v);
-    chapters.forEach((ch) => {
-      if (byChapter[ch]) byChapter[ch].violations.push(v);
-    });
+    const ch = getPrimaryChapterForAxeViolation(v);
+    if (byChapter[ch]) byChapter[ch].violations.push(v);
   });
   (results.incomplete || []).forEach((v) => {
-    const chapters = categorizeAxeViolation(v);
-    chapters.forEach((ch) => {
-      if (byChapter[ch]) byChapter[ch].incomplete.push(v);
-    });
+    const ch = getPrimaryChapterForAxeViolation(v);
+    if (byChapter[ch]) byChapter[ch].incomplete.push(v);
   });
   if (includeAxePasses) {
     (results.passes || []).forEach((v) => {
-      const chapters = categorizeAxeViolation(v);
-      chapters.forEach((ch) => {
-        if (byChapter[ch]) byChapter[ch].passes.push(v);
-      });
+      const ch = getPrimaryChapterForAxeViolation(v);
+      if (byChapter[ch]) byChapter[ch].passes.push(v);
     });
   }
 
@@ -221,7 +204,7 @@ async function main() {
     urls: [],
     axeResults: {},
     customResults: [],
-    summary: { pass: 0, fail: 0, warn: 0 },
+    summary: { pass: 0, fail: 0, warn: 0, info: 0 },
     screenshots: {},
   };
 
@@ -288,6 +271,8 @@ async function main() {
         customData.forEach((r) => {
           if (r.status === 'pass') report.summary.pass++;
           else if (r.status === 'fail') report.summary.fail++;
+          else if (r.status === 'warn') report.summary.warn++;
+          else if (r.status === 'info') report.summary.info++;
           else report.summary.warn++;
         });
       } catch (err) {
@@ -329,7 +314,9 @@ async function main() {
     (sum, r) => sum + (r.violations?.length || 0),
     0
   );
-  console.log(`\nSummary: ${report.summary.pass} pass, ${report.summary.warn} warn, ${report.summary.fail} fail`);
+  console.log(
+    `\nSummary: ${report.summary.pass} pass, ${report.summary.warn} warn, ${report.summary.fail} fail, ${report.summary.info || 0} info`
+  );
   console.log(`Axe violations: ${totalViolations}`);
 }
 

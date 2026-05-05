@@ -1,0 +1,208 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+import AppHeader from '../../../components/AppHeader.astro';
+import ScoreDonut from '../../../components/ScoreDonut.svelte';
+import TrendChart from '../../../components/TrendChart.svelte';
+import { listRunsForDomain } from '../../../../../server/audit-list.js';
+import { dbPool } from '../../../../../server/db.js';
+import { REPORTS_BASE } from '../../../../../server/paths.js';
+import { isValidReportId } from '../../../../../server/fs-utils.js';
+
+export const prerender = false;
+
+const rawDomain = Astro.params.domain ?? '';
+const domain = typeof rawDomain === 'string' ? rawDomain : String(rawDomain);
+
+if (!isValidReportId(domain)) {
+  return new Response('Invalid domain', { status: 400, headers: { 'Content-Type': 'text/plain' } });
+}
+
+const runs = await listRunsForDomain(dbPool, REPORTS_BASE, domain);
+
+const sortedNewestFirst = runs;
+const sortedOldestFirst = [...runs].reverse();
+
+function formatDate(value: any): string {
+  if (!value) return '';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleDateString('en-CA');
+}
+
+const latest = sortedNewestFirst[0] || null;
+const previous = sortedNewestFirst[1] || null;
+const latestDelta = latest && previous && typeof latest.score === 'number' && typeof previous.score === 'number'
+  ? latest.score - previous.score
+  : null;
+
+const trendPoints = sortedOldestFirst
+  .filter((r) => typeof r.score === 'number')
+  .map((r) => ({ date: formatDate(r.updatedAt).slice(5) || r.runId.slice(5, 10), score: r.score as number }));
+
+function formatRunId(runId: string): string {
+  return runId.replace(/Z-[0-9a-f]+$/, 'Z');
+}
+---
+
+<Layout title={`${domain} · audit history`}>
+  <div class="app-shell">
+    <AppHeader domain={domain} runId={null} active="history" />
+    <main class="app-main">
+      <div data-screen-label="Domain history" style="background: var(--us-cream); min-height: calc(100vh - 65px); position: relative; overflow: hidden;">
+        <div aria-hidden="true" style="position: absolute; top: -140px; right: -100px; width: 480px; height: 480px; border-radius: 50%; background: var(--us-grad-iridescent); opacity: 0.4; filter: blur(50px); animation: drift 22s ease-in-out infinite; pointer-events: none;"></div>
+
+        <div class="container" style="padding: 56px 32px 96px; position: relative;">
+          <div class="history-head">
+            <div>
+              <span class="eyebrow"><span class="dot"></span>Audit history · /report/{domain}</span>
+              <h1 class="history-title">{domain}</h1>
+              <p class="p-large muted" style="max-width: 640px;">
+                {runs.length} audit{runs.length === 1 ? '' : 's'} on this domain
+                {latest && typeof latest.score === 'number' ? (
+                  <Fragment>
+                    {' · latest score '}
+                    <strong style="color: var(--fg-1);">{latest.score}/100</strong>
+                  </Fragment>
+                ) : null}
+                {latestDelta != null ? (
+                  <Fragment>
+                    {' '}({latestDelta >= 0 ? '↑' : '↓'} {Math.abs(latestDelta)} vs previous)
+                  </Fragment>
+                ) : null}
+              </p>
+            </div>
+            <a class="btn btn-primary btn-lg" href="/">
+              Run new audit
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 12h14M13 5l7 7-7 7" /></svg>
+            </a>
+          </div>
+
+          {trendPoints.length > 0 && (
+            <div class="card-flat" style="padding: 28px; margin-bottom: 28px;">
+              <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 14px;">
+                <h3 style="font-size: 18px;">Score over time</h3>
+                <span class="muted" style="font-size: 13px;">{trendPoints.length} audits</span>
+              </div>
+              <TrendChart client:load data={trendPoints} width={1180} height={180} />
+            </div>
+          )}
+
+          {latest && (
+            <div class="latest-strip">
+              <ScoreDonut client:load score={latest.score ?? 0} size={88} stroke={9} showLabel={false} />
+              <div>
+                <div class="eyebrow" style="color: rgba(255,255,255,0.6);">
+                  <span class="dot" style="background: #8DFFB7;"></span>Latest audit
+                </div>
+                <div style="font-family: var(--font-display); font-size: 24px; font-weight: 700; margin-top: 4px;">
+                  {formatDate(latest.updatedAt)} · <span class="mono" style="font-size: 16px;">{formatRunId(latest.runId)}</span>
+                </div>
+                <div style="opacity: 0.65; font-size: 13px; margin-top: 2px;">
+                  {latest.issues} issues · {latest.pages} pages
+                </div>
+              </div>
+              {latestDelta != null ? (
+                <span class={`tag ${latestDelta >= 0 ? 'tag-success' : 'tag-error'}`}>
+                  {latestDelta >= 0 ? '↑' : '↓'} {Math.abs(latestDelta)} pts
+                </span>
+              ) : (
+                <span></span>
+              )}
+              <a class="btn btn-cream btn-sm" href={`/report/${encodeURIComponent(domain)}/${encodeURIComponent(latest.runId)}/`}>Open report →</a>
+            </div>
+          )}
+
+          <h2 style="font-size: 22px; margin-bottom: 14px;">All audits</h2>
+
+          {runs.length === 0 ? (
+            <div class="card-flat" style="padding: 32px; text-align: center;">
+              <p class="muted" style="margin-bottom: 16px;">No audits stored for {domain} yet.</p>
+              <a class="btn btn-primary btn-sm" href="/">Run the first audit</a>
+            </div>
+          ) : (
+            <div class="card-flat" style="padding: 0;">
+              <div class="list-row history-row" style="background: var(--us-n-20); font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--fg-3); font-weight: 600;">
+                <span>Date</span><span>Run ID</span><span>Issues</span><span>Pages</span><span>Score</span><span></span>
+              </div>
+              {sortedNewestFirst.map((r, i) => {
+                const next = sortedNewestFirst[i + 1];
+                const delta = next && typeof r.score === 'number' && typeof next.score === 'number' ? r.score - next.score : null;
+                return (
+                  <a class="list-row history-row" href={`/report/${encodeURIComponent(domain)}/${encodeURIComponent(r.runId)}/`}>
+                    <span class="mono" style="font-size: 12px; font-weight: 500;">{formatDate(r.updatedAt)}</span>
+                    <div>
+                      <div class="mono" style="font-weight: 500; font-size: 13px;">{formatRunId(r.runId)}</div>
+                      <div class="muted" style="font-size: 12px;">{r.status}</div>
+                    </div>
+                    <span class="tag tag-error">{r.issues}</span>
+                    <span class="muted mono" style="font-size: 12px;">{r.pages}</span>
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                      <span style="font-family: var(--font-display); font-weight: 700; font-size: 18px; font-variant-numeric: tabular-nums;">
+                        {typeof r.score === 'number' ? r.score : '—'}
+                      </span>
+                      {delta != null ? (
+                        <span class="muted" style="font-size: 11px;">{delta >= 0 ? '↑' : '↓'}{Math.abs(delta)}</span>
+                      ) : null}
+                    </div>
+                    <span style="color: var(--fg-3);">›</span>
+                  </a>
+                );
+              })}
+            </div>
+          )}
+
+          <p class="muted" style="font-size: 12px; margin-top: 18px; text-align: center;">
+            Each domain has its own permanent URL. Share <span class="mono">/report/{domain}/history</span> with your team to see this history anytime.
+          </p>
+        </div>
+      </div>
+    </main>
+  </div>
+</Layout>
+
+<style>
+  .history-head {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 24px;
+    align-items: flex-end;
+    margin-bottom: 36px;
+  }
+  .history-title {
+    font-size: clamp(40px, 5vw, 64px);
+    margin-top: 14px;
+    margin-bottom: 10px;
+  }
+  .latest-strip {
+    display: grid;
+    grid-template-columns: auto 1fr auto auto;
+    gap: 24px;
+    align-items: center;
+    padding: 24px 28px;
+    background: var(--us-ink);
+    color: var(--us-cream);
+    border-radius: var(--r-lg);
+    margin-bottom: 28px;
+  }
+  .history-row {
+    grid-template-columns: 130px 1fr 90px 90px 100px 60px;
+    align-items: center;
+    text-decoration: none;
+    color: inherit;
+  }
+  .history-row + .history-row {
+    border-top: 1px solid var(--border-subtle);
+  }
+  a.history-row:hover {
+    background: var(--us-n-20);
+  }
+  @media (max-width: 720px) {
+    .history-head {
+      grid-template-columns: 1fr;
+    }
+    .latest-strip {
+      grid-template-columns: 1fr;
+      text-align: left;
+    }
+  }
+</style>

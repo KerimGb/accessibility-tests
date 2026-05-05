@@ -74,6 +74,81 @@ export const AXE_TAG_TO_CHAPTER = {
   'cat.motion': ['multimedia'],
 };
 
+/** Prefer specific cat.* tags (first match wins) when assigning a single primary chapter per axe issue. */
+export const AXE_CAT_TAG_PRIORITY = [
+  'cat.color',
+  'cat.text-alternatives',
+  'cat.time-based-media',
+  'cat.motion',
+  'cat.forms',
+  'cat.keyboard',
+  'cat.focus',
+  'cat.language',
+  'cat.parsing',
+  'cat.structure',
+  'cat.name-role-value',
+  'cat.aria',
+  'cat.sensory-and-visual-cues',
+  'cat.layout',
+  'cat.semantics',
+];
+
+const CHAPTER_ORDER_INDEX = {
+  semantics: 0,
+  images: 1,
+  visualDesign: 2,
+  responsive: 3,
+  multimedia: 4,
+  inputMethods: 5,
+  forms: 6,
+  dynamicUpdates: 7,
+};
+
+function pickChapterFromCandidates(ruleId, chapters) {
+  if (!chapters?.length) return 'semantics';
+  if (chapters.length === 1) return chapters[0];
+  const inferred = inferChapterFromRuleId(ruleId);
+  if (chapters.includes(inferred)) return inferred;
+  return chapters
+    .slice()
+    .sort((a, b) => (CHAPTER_ORDER_INDEX[a] ?? 99) - (CHAPTER_ORDER_INDEX[b] ?? 99))[0];
+}
+
+function inferChapterFromRuleId(ruleId) {
+  const id = String(ruleId || '').toLowerCase();
+  if (!id) return 'semantics';
+  if (/(^|-)(color|contrast|link-differentiation|sensory)/.test(id)) return 'visualDesign';
+  if (/(^|-)(image|svg|canvas|alt|area|object|input-image|role-img)/.test(id)) return 'images';
+  if (/(video|audio|media|track|autoplay|blink|marquee)/.test(id)) return 'multimedia';
+  if (/(viewport|meta-viewport|scroll|reflow|zoom|resize|orientation|text-spacing)/.test(id)) return 'responsive';
+  if (/(label|form|input|select|textarea|placeholder|field|autocomplete|checkbox|radio|option)/.test(id)) return 'forms';
+  if (/(keyboard|focus|tabindex|bypass|skip|accesskey|target-size|touch)/.test(id)) return 'inputMethods';
+  if (/(live|busy|status|alert|atomic|relevant|timer|meta-refresh)/.test(id)) return 'dynamicUpdates';
+  if (/(aria|landmark|heading|lang|region|duplicate|list|frame|title|scope|th|caption|table|dl|definition|document|html|valid-lang|page-title|paragraph|blockquote|quote)/.test(id)) {
+    return 'semantics';
+  }
+  return 'semantics';
+}
+
+/**
+ * Primary checklist chapter for an axe violation (one chapter per issue; avoids double-counting in charts).
+ */
+export function getPrimaryChapterForAxeViolation(violation) {
+  const tags = violation.tags || [];
+  const ruleId = violation.id || '';
+  for (const tag of AXE_CAT_TAG_PRIORITY) {
+    if (!tags.includes(tag)) continue;
+    const chapters = AXE_TAG_TO_CHAPTER[tag];
+    if (!chapters?.length) continue;
+    return pickChapterFromCandidates(ruleId, chapters);
+  }
+  if (tags.includes('best-practice')) {
+    const chapters = AXE_TAG_TO_CHAPTER['best-practice'];
+    return pickChapterFromCandidates(ruleId, chapters || ['semantics']);
+  }
+  return inferChapterFromRuleId(ruleId);
+}
+
 /**
  * Semantic Structure and Navigation checklist (WCAG 2.2)
  * Source: https://media.dequeuniversity.com/en/courses/generic/web-semantic-structure-and-navigation/wcag-2.2/docs/module-semantic-checklist-wcag-2.2.pdf

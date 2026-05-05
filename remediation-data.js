@@ -80,6 +80,12 @@ export const REMEDIATION_MAP = {
     impact: 'medium',
     effort: 'moderate',
   },
+  'heading-main-h1': {
+    wcag: ['1.3.1', '2.4.6'],
+    snippet: 'Use <h1> as the first heading inside <main> for the primary page topic.',
+    impact: 'medium',
+    effort: 'simple',
+  },
   'link-text': {
     wcag: ['2.4.4', '4.1.2'],
     snippet: '<a href="...">Descriptive text</a> – avoid empty links or "click here".',

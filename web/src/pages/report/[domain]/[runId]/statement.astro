@@ -1,0 +1,279 @@
+---
+import Layout from '../../../../layouts/Layout.astro';
+import AppHeader from '../../../../components/AppHeader.astro';
+import ScoreDonut from '../../../../components/ScoreDonut.svelte';
+import { readFileSync, existsSync } from 'node:fs';
+import { join } from 'node:path';
+import { buildAstroMainReportPayload } from '../../../../../../report-astro-payload.js';
+import { isValidReportId } from '../../../../../../server/fs-utils.js';
+import { runDir, isValidRunId } from '../../../../../../server/run-ids.js';
+
+export const prerender = false;
+
+const rawDomain = Astro.params.domain ?? '';
+const rawRunId = Astro.params.runId ?? '';
+const domain = typeof rawDomain === 'string' ? rawDomain : String(rawDomain);
+const runId = typeof rawRunId === 'string' ? rawRunId : String(rawRunId);
+
+if (!isValidReportId(domain) || !isValidRunId(runId)) {
+  return new Response('Invalid run id', { status: 400 });
+}
+
+const reportDir = runDir(domain, runId);
+const resultsPath = join(reportDir, 'accessibility-results.json');
+if (!existsSync(resultsPath)) {
+  return new Response('Report not found', { status: 404 });
+}
+
+const json = JSON.parse(readFileSync(resultsPath, 'utf8'));
+const payload = buildAstroMainReportPayload(json);
+
+const statementMetaPath = join(reportDir, 'statement-meta.json');
+let statementMeta: any = {};
+try {
+  if (existsSync(statementMetaPath)) {
+    statementMeta = JSON.parse(readFileSync(statementMetaPath, 'utf8'));
+  }
+} catch {}
+
+const company = statementMeta.organizationShortName || statementMeta.organizationName || payload.primaryHost;
+const legal = statementMeta.organizationName || company;
+const website = statementMeta.website || `https://${payload.primaryHost}`;
+const coordinator = statementMeta.contactName || statementMeta.coordinator || 'Accessibility coordinator';
+const email = statementMeta.contactEmail || statementMeta.email || `accessibility@${payload.primaryHost}`;
+const phone = statementMeta.phone || '';
+const visitorAddress = statementMeta.visitorAddress || statementMeta.address || '';
+const postalAddress = statementMeta.postalAddress || '';
+const responseDays = Number(statementMeta.responseDays || 5);
+const responseTime = `${responseDays} business day${responseDays === 1 ? '' : 's'}`;
+const lastAudit = statementMeta.lastAuditDate || '';
+const auditDate = payload.auditedDate || new Date().toISOString().slice(0, 10);
+
+const passing = payload.scoreClamp >= 80;
+const conformance = passing ? 'Substantial conformance' : 'Partial conformance';
+
+const errorIssues = (payload.fixOrderItems || []).filter((i) => i.status === 'fail' || i.status === 'violation' || i.type === 'violation');
+
+function nextYear(s: string): string {
+  const d = new Date(s);
+  if (Number.isNaN(d.getTime())) return '';
+  d.setFullYear(d.getFullYear() + 1);
+  return d.toISOString().slice(0, 10);
+}
+---
+
+<Layout title={`Accessibility statement · ${company}`}>
+  <div class="app-shell">
+    <AppHeader domain={domain} runId={runId} active="statement" />
+    <main class="app-main">
+      <div data-screen-label="05 Accessibility statement" style="background: var(--us-cream); min-height: calc(100vh - 65px);">
+        <div class="container-narrow" style="padding: 56px 32px 96px;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; flex-wrap: wrap; gap: 12px;">
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+              <a class="btn btn-ghost btn-sm" href={`/report/${encodeURIComponent(domain)}/${encodeURIComponent(runId)}/`} style="align-self: flex-start;">← Back to report</a>
+              <span class="eyebrow"><span class="dot"></span>Auto-generated · ready to publish</span>
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <a class="btn btn-secondary btn-sm" href={`/report/${encodeURIComponent(domain)}/${encodeURIComponent(runId)}/accessibility-statement.html`}>Open static HTML</a>
+              <a class="btn btn-primary btn-sm" href={`/report/${encodeURIComponent(domain)}/${encodeURIComponent(runId)}/accessibility-statement.html`} download>Download HTML</a>
+            </div>
+          </div>
+
+          <article class="statement-doc">
+            <header style="border-bottom: 1px solid var(--border-subtle); padding-bottom: 28px; margin-bottom: 32px;">
+              <div class="muted" style="font-size: 13px; margin-bottom: 8px;">Accessibility statement</div>
+              <h1 style="font-size: 44px; margin-bottom: 14px;">{company}</h1>
+              <div style="display: flex; gap: 18px; font-size: 14px; color: var(--fg-2); flex-wrap: wrap;">
+                <span>Last updated <strong>{auditDate}</strong></span>
+                <span>·</span>
+                <span>{legal}</span>
+                <span>·</span>
+                <a class="link" href={website}>{website}</a>
+              </div>
+            </header>
+
+            <section style="margin-bottom: 28px;">
+              <h2 class="statement-h2">1. Commitment</h2>
+              <p>
+                <strong>{legal}</strong> is committed to making its website accessible
+                in accordance with <em>WCAG 2.2 AA</em> and the EU Web Accessibility Directive.
+                We aim to enable as many people as possible to use our digital services,
+                regardless of ability or technology.
+              </p>
+            </section>
+
+            <section style="margin-bottom: 28px;">
+              <h2 class="statement-h2">2. Conformance status</h2>
+              <div class="conformance-row">
+                <ScoreDonut client:load score={payload.scoreClamp} size={84} stroke={8} showLabel={false} />
+                <div>
+                  <div style="font-family: var(--font-display); font-weight: 700; font-size: 22px; margin-bottom: 2px;">{conformance}</div>
+                  <div style="font-size: 14px; color: var(--fg-2);">
+                    This site is <strong>{passing ? 'mostly compliant' : 'partially compliant'}</strong> with WCAG 2.2 level AA.
+                    Compliance score: {payload.scoreClamp}/100.
+                  </div>
+                </div>
+              </div>
+              <p>
+                "Partially compliant" means some content does not yet fully conform to the standard.
+                The non-compliant content is listed below.
+              </p>
+            </section>
+
+            <section style="margin-bottom: 28px;">
+              <h2 class="statement-h2">3. Non-accessible content</h2>
+              {errorIssues.length === 0 ? (
+                <p class="muted">No outstanding errors at the time of this audit.</p>
+              ) : (
+                <Fragment>
+                  <p style="margin-bottom: 12px;">The following items are known to fall short of WCAG 2.2 AA:</p>
+                  <ol style="padding-left: 22px; display: flex; flex-direction: column; gap: 8px;">
+                    {errorIssues.slice(0, 12).map((i) => (
+                      <li style="font-size: 14px;">
+                        <strong>{i.rule || i.id}</strong>
+                        {i.wcag ? <Fragment> <span class="muted">(WCAG {i.wcag})</span></Fragment> : null}
+                        {i.snippet ? ` — ${i.snippet}` : ''}
+                      </li>
+                    ))}
+                  </ol>
+                  {errorIssues.length > 12 && (
+                    <p class="muted" style="margin-top: 8px; font-size: 13px;">…and {errorIssues.length - 12} more in the full report.</p>
+                  )}
+                </Fragment>
+              )}
+            </section>
+
+            <section style="margin-bottom: 28px;">
+              <h2 class="statement-h2">4. Preparation of this statement</h2>
+              <p>
+                This statement was prepared on <strong>{auditDate}</strong>, following an accessibility audit using a combination of
+                automated scanning ({payload.rulesTable.length} WCAG 2.2 AA rules across {payload.urls.length} pages)
+                and manual heuristic review.
+                {nextYear(auditDate) ? <Fragment> The next review is scheduled for {nextYear(auditDate)}.</Fragment> : null}
+              </p>
+              {lastAudit && (
+                <p>The previous audit was conducted on <strong>{lastAudit}</strong>.</p>
+              )}
+            </section>
+
+            <section style="margin-bottom: 28px;">
+              <h2 class="statement-h2">5. Feedback and contact</h2>
+              <p>If you encounter a barrier, please tell us — we want to fix it.</p>
+              <div class="contact-grid">
+                <div>
+                  <div class="kv-label">Accessibility coordinator</div>
+                  <div class="kv-value">{coordinator}</div>
+                </div>
+                <div>
+                  <div class="kv-label">Email</div>
+                  <div class="kv-value"><a class="link" href={`mailto:${email}`}>{email}</a></div>
+                </div>
+                {phone && (
+                  <div>
+                    <div class="kv-label">Phone</div>
+                    <div class="kv-value">{phone}</div>
+                  </div>
+                )}
+                {visitorAddress && (
+                  <div>
+                    <div class="kv-label">Visitor address</div>
+                    <div class="kv-value">{visitorAddress}</div>
+                  </div>
+                )}
+                {postalAddress && (
+                  <div>
+                    <div class="kv-label">Postal address</div>
+                    <div class="kv-value">{postalAddress}</div>
+                  </div>
+                )}
+                <div>
+                  <div class="kv-label">Response time</div>
+                  <div class="kv-value">Within {responseTime}</div>
+                </div>
+              </div>
+            </section>
+
+            <section style="margin-bottom: 28px;">
+              <h2 class="statement-h2">6. Enforcement procedure</h2>
+              <p>
+                If we don't respond satisfactorily within <strong>{responseTime}</strong>, you can escalate to your local
+                accessibility regulator. In Belgium, that's the Federal Public Service Policy and Support (BOSA).
+              </p>
+            </section>
+
+            <footer style="margin-top: 40px; padding-top: 24px; border-top: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--fg-3); flex-wrap: wrap; gap: 8px;">
+              <span class="mono">Generated automatically · audit {domain}/{runId}</span>
+              <span style="display: flex; align-items: center; gap: 6px;">
+                Generated with <span class="brand-dot" style="width: 16px; height: 16px;"></span><strong style="color: var(--fg-1);">Us</strong>
+              </span>
+            </footer>
+          </article>
+
+          <div style="margin-top: 32px; display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
+            <a class="btn btn-secondary" href={`/report/${encodeURIComponent(domain)}/${encodeURIComponent(runId)}/`}>← Back to results</a>
+            <a class="btn btn-primary" href={`/report/${encodeURIComponent(domain)}/${encodeURIComponent(runId)}/accessibility-developers.html`}>Developer next-steps →</a>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</Layout>
+
+<style>
+  .statement-doc {
+    background: var(--us-white);
+    border-radius: var(--r-lg);
+    padding: 56px 64px;
+    box-shadow: var(--shadow-card);
+    font-family: var(--font-body);
+    font-weight: 300;
+    line-height: 1.7;
+    color: var(--fg-1);
+  }
+  @media (max-width: 720px) {
+    .statement-doc {
+      padding: 32px 24px;
+    }
+  }
+  .statement-h2 {
+    font-size: 22px;
+    margin-bottom: 12px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  .conformance-row {
+    padding: 18px;
+    background: var(--us-cream);
+    border-radius: 12px;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 18px;
+    align-items: center;
+    margin: 12px 0;
+  }
+  .contact-grid {
+    padding: 20px;
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin-top: 12px;
+    font-size: 14px;
+  }
+  @media (max-width: 540px) {
+    .contact-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+  .kv-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--fg-3);
+    margin-bottom: 2px;
+  }
+  .kv-value {
+    font-weight: 500;
+  }
+</style>

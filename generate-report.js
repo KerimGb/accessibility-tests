@@ -5,7 +5,7 @@
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
+import { basename, dirname, join } from 'path';
 import {
   getRemediation,
   wcagScUrl,
@@ -17,6 +17,11 @@ import {
   buildChartSectionStyles,
 } from './report-summary.js';
 import { REPORT_BRAND_HEAD, REPORT_MAIN_REPORT_CSS, REPORT_LOGO_URL } from './report-brand.js';
+import {
+  MANUAL_VERIFICATION_ITEMS,
+  ASSISTIVE_TECH_ITEMS,
+  MANUAL_TODO_GROUPS,
+} from './manual-checklist.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DEFAULT_OUTPUT_DIR = join(__dirname, 'reports');
@@ -39,6 +44,7 @@ const DISABILITY_MAP = {
   'landmarks-present': ['Blindness', 'Low Vision', 'Cognitive Disabilities'],
   'single-main': ['Blindness', 'Low Vision', 'Cognitive Disabilities'],
   'heading-structure': ['Blindness', 'Low Vision', 'Reading Disabilities', 'Cognitive Disabilities'],
+  'heading-main-h1': ['Blindness', 'Low Vision', 'Reading Disabilities', 'Cognitive Disabilities'],
   'link-text': ['Blindness', 'Low Vision', 'Reading Disabilities'],
   'link-meaningful': ['Blindness', 'Low Vision', 'Reading Disabilities', 'Cognitive Disabilities'],
   'skip-link': ['Blindness', 'Dexterity/Motor Disabilities'],
@@ -68,6 +74,8 @@ const DISABILITY_MAP = {
   'placeholder-not-only-label': ['Blindness', 'Cognitive Disabilities', 'Reading Disabilities'],
   'no-auto-refresh': ['Cognitive Disabilities', 'Dexterity/Motor Disabilities'],
   'dynamic-announcements': ['Blindness', 'Cognitive Disabilities'],
+  'dynamic-status-roles': ['Blindness', 'Cognitive Disabilities'],
+  'dynamic-aria-busy': ['Blindness', 'Cognitive Disabilities'],
   'page-load': ['Various'],
 };
 
@@ -77,45 +85,13 @@ const ALL_DISABILITIES = [
   'Cognitive Disabilities', 'Reading Disabilities', 'Seizure Disorders', 'Various',
 ];
 
-const MANUAL_VERIFICATION_ITEMS = [
-  { text: 'Page title is unique and describes the page or result of the user action.', disabilities: ['Blindness', 'Low Vision', 'Reading Disabilities', 'Cognitive Disabilities'] },
-  { text: 'Link purpose can be determined from the link text alone (no "click here").', disabilities: ['Blindness', 'Low Vision', 'Reading Disabilities', 'Cognitive Disabilities'] },
-  { text: 'Alternative text is meaningful and concise, not just present.', disabilities: ['Blindness', 'Low Vision', 'Deafblindness'] },
-  { text: 'Color contrast meets 4.5:1 for normal text, 3:1 for large text and UI.', disabilities: ['Low Vision', 'Colorblindness'] },
-  { text: 'Information is not conveyed by color alone.', disabilities: ['Colorblindness', 'Low Vision'] },
-  { text: 'Focus order is logical and matches visual order; no positive tabindex.', disabilities: ['Blindness', 'Dexterity/Motor Disabilities'] },
-  { text: 'All interactive elements are keyboard accessible and have visible focus.', disabilities: ['Blindness', 'Dexterity/Motor Disabilities', 'Low Vision'] },
-  { text: 'Touch targets are at least 44×44px with spacing between them.', disabilities: ['Dexterity/Motor Disabilities', 'Low Vision'] },
-  { text: 'Form error messages are associated with fields and announced to screen readers.', disabilities: ['Blindness', 'Cognitive Disabilities', 'Reading Disabilities'] },
-  { text: 'Dynamic content changes are announced (e.g. aria-live) where appropriate.', disabilities: ['Blindness', 'Cognitive Disabilities'] },
-  { text: 'No content flashes more than 3 times per second (seizure risk).', disabilities: ['Seizure Disorders'] },
-  { text: 'Video has captions and, if needed, audio description; audio has transcript.', disabilities: ['Deafness and Hard-of-Hearing', 'Deafblindness'] },
-  { text: 'Motion/animation can be paused or disabled (e.g. prefers-reduced-motion).', disabilities: ['Cognitive Disabilities'] },
-];
-
-const ASSISTIVE_TECH_ITEMS = [
-  { text: 'Screen reader (NVDA, JAWS, or VoiceOver): Navigate by headings and landmarks; all content reachable.', disabilities: ['Blindness', 'Low Vision'] },
-  { text: 'Screen reader: Form fields have announced labels and errors; buttons/links have clear names.', disabilities: ['Blindness', 'Low Vision'] },
-  { text: 'Screen reader: No unexpected context changes on focus; dynamic updates are announced.', disabilities: ['Blindness', 'Cognitive Disabilities'] },
-  { text: 'Keyboard only: Tab through every interactive element; no keyboard traps.', disabilities: ['Blindness', 'Dexterity/Motor Disabilities'] },
-  { text: 'Keyboard only: Focus order matches visual order; focus is always visible.', disabilities: ['Blindness', 'Dexterity/Motor Disabilities', 'Low Vision'] },
-  { text: 'Keyboard only: All actions (menus, modals, carousels) work with keyboard alone.', disabilities: ['Blindness', 'Dexterity/Motor Disabilities'] },
-  { text: 'Zoom: At 200% zoom, content reflows; no horizontal scrolling; text still readable.', disabilities: ['Low Vision'] },
-  { text: 'Zoom: No content clipped or overlapping at 200%.', disabilities: ['Low Vision'] },
-  { text: 'Reduce motion: Animations respect prefers-reduced-motion or can be paused.', disabilities: ['Cognitive Disabilities'] },
-  { text: 'Mobile/touch: All features work with touch; targets are large enough; no gesture-only actions.', disabilities: ['Dexterity/Motor Disabilities', 'Low Vision'] },
-];
-
-const MANUAL_TODO_ITEMS = [
-  { label: 'Manual verification', items: MANUAL_VERIFICATION_ITEMS },
-  { label: 'Assistive technology & manual testing', items: ASSISTIVE_TECH_ITEMS },
-];
+const MANUAL_TODO_ITEMS = MANUAL_TODO_GROUPS;
 
 function statusColor(s) {
-  if (s === 'pass') return '#2e7d32';
-  if (s === 'fail') return '#c62828';
-  if (s === 'warn') return '#ed6c02';
-  return '#1565c0';
+  if (s === 'pass') return '#41bd73';
+  if (s === 'fail') return '#df2020';
+  if (s === 'warn') return '#eb8916';
+  return '#3c81e7';
 }
 
 function escapeHtml(s) {
@@ -204,13 +180,13 @@ function computeIssueMetrics(reportData) {
 
 function computeCategoryStats(fixOrderItems) {
   const defs = [
-    { key: 'contrast', label: 'Color contrast', color: '#c73b42', match: (i) => /contrast/i.test(i.id || '') || /contrast/i.test(i.rule || '') },
-    { key: 'images', label: 'Missing alt text', color: '#d98200', match: (i) => /img-alt|image-alt|alt/i.test(i.id || '') || /alt text|image/i.test(i.rule || '') },
-    { key: 'forms', label: 'Form labels', color: '#3b6db1', match: (i) => /label|form/i.test(i.id || '') || /label|form/i.test(i.rule || '') },
-    { key: 'keyboard', label: 'Keyboard nav', color: '#3f8f52', match: (i) => /keyboard|tabindex|focus-order|focus-visible|focus/i.test(i.id || '') || /keyboard|focus|tab/i.test(i.rule || '') },
-    { key: 'reader', label: 'Screen reader', color: '#7c72d2', match: (i) => /aria|name-role|iframe|landmark|region|dynamic/i.test(i.id || '') || /screen reader|aria/i.test(i.rule || '') },
-    { key: 'links', label: 'Link clarity', color: '#8b8b83', match: (i) => /link/i.test(i.id || '') || /link/i.test(i.rule || '') },
-    { key: 'headings', label: 'Headings', color: '#58bea0', match: (i) => /heading/i.test(i.id || '') || /heading/i.test(i.rule || '') },
+    { key: 'contrast', label: 'Color contrast', color: '#df2020', match: (i) => /contrast/i.test(i.id || '') || /contrast/i.test(i.rule || '') },
+    { key: 'images', label: 'Missing alt text', color: '#eb8916', match: (i) => /img-alt|image-alt|alt/i.test(i.id || '') || /alt text|image/i.test(i.rule || '') },
+    { key: 'forms', label: 'Form labels', color: '#3c81e7', match: (i) => /label|form/i.test(i.id || '') || /label|form/i.test(i.rule || '') },
+    { key: 'keyboard', label: 'Keyboard nav', color: '#048255', match: (i) => /keyboard|tabindex|focus-order|focus-visible|focus/i.test(i.id || '') || /keyboard|focus|tab/i.test(i.rule || '') },
+    { key: 'reader', label: 'Screen reader', color: '#6257e8', match: (i) => /aria|name-role|iframe|landmark|region|dynamic/i.test(i.id || '') || /screen reader|aria/i.test(i.rule || '') },
+    { key: 'links', label: 'Link clarity', color: '#707070', match: (i) => /link/i.test(i.id || '') || /link/i.test(i.rule || '') },
+    { key: 'headings', label: 'Headings', color: '#41bd73', match: (i) => /heading/i.test(i.id || '') || /heading/i.test(i.rule || '') },
   ];
   const counts = Object.fromEntries(defs.map((d) => [d.key, 0]));
   (fixOrderItems || []).forEach((item) => {
@@ -325,9 +301,11 @@ export function generateReport(reportData, options = {}) {
   const pass = reportData.summary?.pass || 0;
   const fail = reportData.summary?.fail || 0;
   const warn = reportData.summary?.warn || 0;
-  // Score = % of all checks that passed (custom pass + axe rules passed) / (custom results + axe violations + axe passes)
-  const total = pass + fail + warn + totalAxeViolations + totalAxePasses;
-  const score = total === 0 ? 100 : Math.round(((pass + totalAxePasses) / total) * 100);
+  const info = reportData.summary?.info || 0;
+  // Score excludes advisory "info" rows. Denominator: pass + fail + warn + axe violations + axe passes.
+  const scoreDen = pass + fail + warn + totalAxeViolations + totalAxePasses;
+  const total = pass + fail + warn + info + totalAxeViolations + totalAxePasses;
+  const score = scoreDen === 0 ? 100 : Math.round(((pass + totalAxePasses) / scoreDen) * 100);
   const scoreClamp = Math.max(0, Math.min(100, score));
 
   const disabilityStats = {};
@@ -434,9 +412,10 @@ export function generateReport(reportData, options = {}) {
     header .timestamp { margin: 0; font-size: 0.9rem; color: var(--text-muted); }
     .summary { display: flex; gap: 12px; padding: 20px 32px; background: var(--bg); border-bottom: 1px solid var(--border); flex-wrap: wrap; }
     .summary-item { padding: 14px 20px; border-radius: 10px; background: var(--surface); border: 1px solid var(--border); }
-    .summary-item.pass { border-color: var(--pass); background: #e8f5e9; }
-    .summary-item.fail { border-color: var(--fail); background: #ffebee; }
-    .summary-item.warn { border-color: var(--warn); background: #fff3e0; }
+    .summary-item.pass { border-color: var(--pass); background: var(--pass-soft); }
+    .summary-item.fail { border-color: var(--fail); background: var(--fail-soft); }
+    .summary-item.warn { border-color: var(--warn); background: var(--warn-soft); }
+    .summary-item.info { border-color: var(--info); background: var(--info-soft); }
     .summary-item span { display: block; font-size: 1.5rem; font-weight: 700; }
     .summary-item small { color: var(--text-muted); font-size: 0.85rem; }
     .summary-item.filter-btn { cursor: pointer; transition: transform .15s, box-shadow .15s; border: none; font: inherit; text-align: left; }
@@ -454,8 +433,8 @@ export function generateReport(reportData, options = {}) {
     .disability-stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; padding: 12px 32px; font-size: 0.8rem; color: var(--text-muted); }
     .disability-stats .stat { padding: 6px 10px; background: var(--bg); border-radius: 6px; }
     .alert { padding: 18px 32px; margin: 0; border-radius: 0; }
-    .alert-warning { background: #fff3e0; border-left: 4px solid var(--warn); }
-    .alert-error { background: #ffebee; border-left: 4px solid var(--fail); }
+    .alert-warning { background: var(--warn-soft); border-left: 4px solid var(--warn); }
+    .alert-error { background: var(--fail-soft); border-left: 4px solid var(--fail); }
     section { padding: 28px 32px; }
     section h2 { margin: 0 0 20px; font-size: 1.2rem; font-weight: 700; letter-spacing: -0.02em; color: var(--text); }
     .url-section { margin-bottom: 32px; }
@@ -464,11 +443,11 @@ export function generateReport(reportData, options = {}) {
     th, td { padding: 12px 14px; text-align: left; border-bottom: 1px solid var(--border); }
     th { background: var(--bg); font-weight: 600; }
     .badge { display: inline-block; padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; }
-    .badge.pass { background: #e8f5e9; color: var(--pass); }
-    .badge.fail { background: #ffebee; color: var(--fail); }
-    .badge.warn { background: #fff3e0; color: var(--warn); }
-    .badge.info { background: #e3f2fd; color: var(--info); }
-    .violation { margin-bottom: 16px; padding: 14px 16px; background: #fff8e1; border-left: 4px solid var(--warn); border-radius: 8px; font-size: 0.9rem; }
+    .badge.pass { background: var(--pass-soft); color: var(--pass); }
+    .badge.fail { background: var(--fail-soft); color: var(--fail); }
+    .badge.warn { background: var(--warn-soft); color: var(--warn); }
+    .badge.info { background: var(--info-soft); color: var(--info); }
+    .violation { margin-bottom: 16px; padding: 14px 16px; background: var(--warn-soft); border-left: 4px solid var(--warn); border-radius: 8px; font-size: 0.9rem; }
     .violation strong { display: block; margin-bottom: 4px; }
     .violation code { font-size: 0.85em; background: var(--bg); padding: 2px 6px; border-radius: 4px; }
     footer { padding: 20px 32px; font-size: 0.85rem; color: var(--text-muted); border-top: 1px solid var(--border); }
@@ -480,33 +459,33 @@ export function generateReport(reportData, options = {}) {
     .kpi { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
     .kpi .label { font-size: .9rem; color: var(--text-muted); margin-bottom: 6px; }
     .kpi .value { font-size: 1.9rem; font-weight: 700; line-height: 1; }
-    .kpi .value.warn { color: #b96f00; }
+    .kpi .value.warn { color: #b35610; }
     .kpi .value.fail { color: var(--fail); }
     .compliance-card { display: grid; grid-template-columns: 96px 1fr; gap: 16px; background: var(--bg); border: 1px solid var(--border); border-radius: 12px; padding: 14px; margin: 0 0 14px; align-items: center; }
-    .score-ring { width: 82px; height: 82px; border-radius: 50%; background: conic-gradient(var(--accent) ${scoreClamp}%, #e8e6e1 0); display: grid; place-items: center; margin: 0 auto; }
-    .score-ring::before { content: "${scoreClamp}"; width: 62px; height: 62px; border-radius: 50%; background: #fff; display: grid; place-items: center; font-weight: 700; color: #9b5e00; }
+    .score-ring { width: 82px; height: 82px; border-radius: 50%; background: conic-gradient(var(--accent) ${scoreClamp}%, var(--border) 0); display: grid; place-items: center; margin: 0 auto; }
+    .score-ring::before { content: "${scoreClamp}"; width: 62px; height: 62px; border-radius: 50%; background: #fff; display: grid; place-items: center; font-weight: 700; color: #b35610; }
     .compliance-title { margin: 0 0 6px; font-size: 1.35rem; line-height: 1.2; }
     .compliance-copy { margin: 0; color: var(--text); font-size: 0.95rem; }
     .status-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
     .status-pill { padding: 5px 9px; border-radius: 8px; font-size: .84rem; font-weight: 600; }
-    .status-pill.a { background: #e8f5e9; color: #2e7d32; }
-    .status-pill.aa { background: #fff3e0; color: #8c5b00; }
-    .status-pill.aaa { background: #ffebee; color: #a73636; }
+    .status-pill.a { background: var(--pass-soft); color: var(--pass); }
+    .status-pill.aa { background: var(--warn-soft); color: #b35610; }
+    .status-pill.aaa { background: var(--fail-soft); color: var(--fail); }
     .stats-panels { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 0 0 16px; }
     .panel { background: var(--bg); border: 1px solid var(--border); border-radius: 12px; padding: 14px; }
     .panel h3 { margin: 0 0 10px; letter-spacing: .06em; text-transform: uppercase; font-size: 0.9rem; }
     .severity-row { display: grid; grid-template-columns: 100px 1fr 42px; align-items: center; gap: 10px; margin-bottom: 9px; }
     .severity-row .bar { height: 10px; background: #ecebea; border-radius: 999px; overflow: hidden; }
     .severity-row .fill { height: 100%; border-radius: 999px; }
-    .sev-critical { background: #c73b42; } .sev-serious { background: #d98200; } .sev-moderate { background: #3b6db1; } .sev-minor { background: #88887f; }
+    .sev-critical { background: #df2020; } .sev-serious { background: #eb8916; } .sev-moderate { background: #3c81e7; } .sev-minor { background: #707070; }
     .most-pages table { width: 100%; border-collapse: collapse; }
     .most-pages th, .most-pages td { padding: 7px 0; border-bottom: 1px solid var(--border); font-size: .9rem; }
     .most-pages th { color: var(--text-muted); font-weight: 600; }
     .sev-tag { padding: 3px 8px; border-radius: 999px; font-size: .78rem; font-weight: 600; }
-    .sev-tag.critical { background: #ffebee; color: #a73636; }
-    .sev-tag.serious { background: #fff3e0; color: #8c5b00; }
-    .sev-tag.moderate { background: #e3f2fd; color: #1f5f97; }
-    .sev-tag.minor { background: #f1f1ef; color: #686860; }
+    .sev-tag.critical { background: var(--fail-soft); color: var(--fail); }
+    .sev-tag.serious { background: var(--warn-soft); color: #b35610; }
+    .sev-tag.moderate { background: var(--info-soft); color: #294899; }
+    .sev-tag.minor { background: var(--accent-soft); color: var(--text-muted); }
     .extra-stats { margin: 10px 0 16px; background: var(--bg); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
     .extra-stats h3 { margin: 0 0 12px; font-size: 1rem; letter-spacing: .06em; text-transform: uppercase; }
     .category-bars { display: grid; grid-template-columns: repeat(7, minmax(0,1fr)); gap: 10px; align-items: end; min-height: 220px; }
@@ -524,14 +503,14 @@ export function generateReport(reportData, options = {}) {
     .bench-card small { color: var(--text-muted); display: block; margin-bottom: 6px; }
     .bench-card strong { font-size: 2rem; line-height: 1; }
     .bench-note { border-radius: 10px; padding: 10px 12px; margin-top: 8px; font-size: .95rem; }
-    .bench-note.bad { background: #fdecef; color: #7f2930; }
-    .bench-note.info { background: #eaf2fd; color: #1f4e7a; }
-    .bench-note.good { background: #e8f4df; color: #2a5d2f; margin-top: 0; }
+    .bench-note.bad { background: var(--fail-soft); color: #872012; }
+    .bench-note.info { background: var(--info-soft); color: #294899; }
+    .bench-note.good { background: var(--pass-soft); color: #048255; margin-top: 0; }
     .dist-card { position: relative; background: #fff; border: 1px solid var(--border); border-radius: 10px; padding: 14px; min-height: 190px; }
     .dist-area { position: absolute; left: 14px; right: 14px; bottom: 38px; top: 36px; background: linear-gradient(180deg, rgba(144,182,221,.7) 0%, rgba(144,182,221,.5) 60%, rgba(144,182,221,.35) 100%); clip-path: polygon(0% 100%, 8% 98%, 16% 95%, 28% 88%, 40% 76%, 50% 58%, 58% 42%, 66% 30%, 75% 24%, 84% 31%, 92% 48%, 100% 70%, 100% 100%); border-top: 2px solid #2f6fb1; }
     .dist-marker { position: absolute; bottom: 62px; transform: translateX(-50%); font-size: .9rem; font-weight: 600; }
     .dist-marker::after { content: ''; position: absolute; left: 50%; transform: translateX(-50%); top: 20px; width: 2px; height: 72px; background: currentColor; opacity: .65; }
-    .dist-marker.you { color: #a73636; } .dist-marker.avg { color: #6f7782; }
+    .dist-marker.you { color: var(--fail); } .dist-marker.avg { color: #707070; }
     .dist-axis { position: absolute; left: 14px; right: 14px; bottom: 8px; display: flex; justify-content: space-between; font-size: .86rem; color: var(--text-muted); }
     .split { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
     .cat-table { width: 100%; border-collapse: collapse; }
@@ -547,12 +526,12 @@ export function generateReport(reportData, options = {}) {
     .impact-grid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px; }
     .impact-card { background: #fff; border: 1px solid var(--border); border-radius: 10px; padding: 12px; }
     .impact-icon { width: 34px; height: 34px; border-radius: 999px; display: grid; place-items: center; font-weight: 700; margin-bottom: 8px; }
-    .impact-icon.warn { background: #fdecef; color: #9f2e36; }
-    .impact-icon.cash { background: #fff4e6; color: #8c5b00; }
-    .impact-icon.up { background: #ecf7e8; color: #2e7d32; }
+    .impact-icon.warn { background: var(--fail-soft); color: var(--fail); }
+    .impact-icon.cash { background: var(--warn-soft); color: #b35610; }
+    .impact-icon.up { background: var(--pass-soft); color: var(--pass); }
     .impact-card h4 { margin: 0 0 6px; font-size: 1.12rem; }
     .impact-card p { margin: 0; color: var(--text); }
-    .impact-highlight { margin-top: 12px; background: #fff2de; color: #6f4a08; border: 1px solid #f0ddbf; border-radius: 10px; padding: 12px; font-size: 1.03rem; }
+    .impact-highlight { margin-top: 12px; background: var(--warn-soft); color: #872012; border: 1px solid rgba(235, 137, 22, 0.35); border-radius: 10px; padding: 12px; font-size: 1.03rem; }
     @media (max-width: 900px) { .kpi-grid { grid-template-columns: repeat(2, minmax(0,1fr)); } .stats-panels { grid-template-columns: 1fr; } .compliance-card { grid-template-columns: 1fr; } }
     @media (max-width: 900px) { .quick-grid { grid-template-columns: 1fr; } .bench-grid { grid-template-columns: repeat(2, minmax(0,1fr)); } .category-bars { grid-template-columns: repeat(2, minmax(0,1fr)); min-height: 0; } }
     @media (max-width: 900px) { .split { grid-template-columns: 1fr; } .dist-marker::after { height: 56px; } }
@@ -593,12 +572,12 @@ export function generateReport(reportData, options = {}) {
     .occurrences .occurrence-item .selector { font-family: monospace; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 6px; word-break: break-all; }
     .occurrences .occurrence-item pre { margin: 0; padding: 8px; background: #1e1e1e; color: #d4d4d4; border-radius: 4px; overflow-x: auto; white-space: pre-wrap; font-size: 0.75rem; }
     .wcag-links { font-size: 0.8rem; margin-top: 4px; }
-    .wcag-links a { color: var(--accent); }
+    .wcag-links a { color: var(--link); }
     .impact-effort { display: flex; gap: 6px; margin-top: 4px; flex-wrap: wrap; }
     .impact-effort .badge { font-size: 0.7rem; }
     .report-meta .timestamp { font-size: 0.9rem; color: var(--text-muted); }
     .btn-pdf { padding: 8px 16px; background: var(--accent); color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 0.9rem; }
-    .btn-pdf:hover { filter: brightness(1.05); }
+    .btn-pdf:hover { background: var(--accent-hover); }
     .comparison-section { padding: 16px 32px; background: var(--bg); border-bottom: 1px solid var(--border); }
     .comparison-section h3 { margin: 0 0 12px; font-size: 1rem; }
     .comparison-section .improved { color: var(--pass); }
@@ -613,9 +592,9 @@ export function generateReport(reportData, options = {}) {
     .suggested-fixes .fix-desc { margin: 0 0 8px; font-size: 0.98rem; color: var(--text); }
     .suggested-fixes .pill-row { display: flex; gap: 8px; flex-wrap: wrap; }
     .suggested-fixes .pill { padding: 5px 12px; border-radius: 999px; font-size: .88rem; line-height: 1; font-weight: 600; background: #fff; border: 1px solid var(--border); min-height: 28px; display: inline-flex; align-items: center; }
-    .suggested-fixes .pill.impact-high { color: #a73636; background: #ffebee; border-color: #ffd7db; }
-    .suggested-fixes .pill.impact-medium { color: #8c5b00; background: #fff3e0; border-color: #ffe5bf; }
-    .suggested-fixes .pill.impact-low { color: #2e7d32; background: #e8f5e9; border-color: #cfe9d0; }
+    .suggested-fixes .pill.impact-high { color: var(--fail); background: var(--fail-soft); border-color: #f5b4b4; }
+    .suggested-fixes .pill.impact-medium { color: #b35610; background: var(--warn-soft); border-color: #f5d4a8; }
+    .suggested-fixes .pill.impact-low { color: var(--pass); background: var(--pass-soft); border-color: #b8e8cc; }
     .bottom-insights { padding: 18px 32px 26px; border-top: 1px solid var(--border); background: var(--surface); }
     .bottom-insights h3 { margin: 0 0 10px; font-size: 1rem; letter-spacing: .06em; text-transform: uppercase; }
     .est-grid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px; margin: 0 0 12px; }
@@ -623,8 +602,8 @@ export function generateReport(reportData, options = {}) {
     .est-card .lbl { font-size: .95rem; color: var(--text); margin-bottom: 6px; }
     .est-card .val { font-size: 2rem; font-weight: 700; line-height: 1; }
     .est-card .val.warn { color: #c97700; }
-    .est-card .val.good { color: #2e7d32; }
-    .insight-green { background: #e8f4df; color: #2a5d2f; border: 1px solid #d3e8c7; border-radius: 10px; padding: 11px 12px; font-size: 1.02rem; margin-bottom: 16px; }
+    .est-card .val.good { color: var(--pass); }
+    .insight-green { background: var(--pass-soft); color: #048255; border: 1px solid #b8e8cc; border-radius: 10px; padding: 11px 12px; font-size: 1.02rem; margin-bottom: 16px; }
     .impact-box { border-top: 1px solid var(--border); padding-top: 16px; margin-top: 6px; }
     .impact-box p { margin: 0 0 10px; }
     .sim-chart { background: #fff; border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
@@ -634,7 +613,7 @@ export function generateReport(reportData, options = {}) {
     .sim-row .fill { height: 100%; background: #7aa9da; border-radius: 999px; }
     .sim-row .num { text-align: right; color: var(--text-muted); font-size: .9rem; }
     .next-steps { border-top: 1px solid var(--border); margin-top: 16px; padding-top: 16px; }
-    .next-box { background: #eaf2fd; color: #1f4e7a; border: 1px solid #d5e5fb; border-radius: 10px; padding: 11px 12px; font-size: 1.02rem; margin-bottom: 12px; }
+    .next-box { background: var(--info-soft); color: #294899; border: 1px solid #c5daf5; border-radius: 10px; padding: 11px 12px; font-size: 1.02rem; margin-bottom: 12px; }
     .cta-row { display: flex; gap: 10px; flex-wrap: wrap; }
     .cta-row a { display: inline-block; padding: 8px 12px; border: 1px solid var(--border); border-radius: 10px; background: #fff; color: var(--text); text-decoration: none; font-size: .95rem; }
     .cta-row a:hover { background: var(--bg); }
@@ -647,7 +626,7 @@ export function generateReport(reportData, options = {}) {
     .checklist-ref .checklist-section h5 { margin: 12px 0 6px; font-size: 0.85rem; color: var(--text-muted); }
     .checklist-ref .checklist-section ul { margin: 0 0 8px; padding-left: 20px; }
     .checklist-ref .checklist-section li { margin-bottom: 4px; }
-    .checklist-ref a { color: var(--accent); }
+    .checklist-ref a { color: var(--link); }
     .screenshot-wrap { margin: 12px 0 20px; }
     .screenshot-wrap .screenshot-caption { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 10px; }
     .screenshot-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
@@ -756,7 +735,7 @@ export function generateReport(reportData, options = {}) {
       <div class="bench-grid">
         <div class="bench-card"><small>Better than</small><strong>${betterThan}%</strong></div>
         <div class="bench-card"><small>Industry avg</small><strong>${industryAvg} / 100</strong></div>
-        <div class="bench-card"><small>Gap to avg</small><strong style="color:${gapToAvg < 0 ? '#a73636' : '#2e7d32'}">${gapToAvg > 0 ? '+' : ''}${gapToAvg} pts</strong></div>
+        <div class="bench-card"><small>Gap to avg</small><strong style="color:${gapToAvg < 0 ? '#df2020' : '#41bd73'}">${gapToAvg > 0 ? '+' : ''}${gapToAvg} pts</strong></div>
         <div class="bench-card"><small>Top 10% threshold</small><strong>&ge; ${top10Threshold}</strong></div>
       </div>
       <div class="bench-note bad">Your score of ${scoreClamp} is ${gapToAvg < 0 ? 'below' : 'above'} the industry average of ${industryAvg}. Closing to average requires fixing roughly ${closeGapIssues} additional issues.</div>
@@ -777,7 +756,7 @@ export function generateReport(reportData, options = {}) {
         <table class="cat-table">
           <thead><tr><th>Category</th><th>You</th><th>Avg</th><th>Diff</th></tr></thead>
           <tbody>
-            ${categoryScores.map((r) => `<tr><td>${escapeHtml(r.label)}</td><td>${r.you}</td><td>${r.avg}</td><td style="color:${r.diff >= 0 ? '#2e7d32' : '#a73636'}">${r.diff >= 0 ? '+' : ''}${r.diff}</td></tr>`).join('')}
+            ${categoryScores.map((r) => `<tr><td>${escapeHtml(r.label)}</td><td>${r.you}</td><td>${r.avg}</td><td style="color:${r.diff >= 0 ? '#41bd73' : '#df2020'}">${r.diff >= 0 ? '+' : ''}${r.diff}</td></tr>`).join('')}
           </tbody>
         </table>
       </div>
@@ -823,6 +802,7 @@ export function generateReport(reportData, options = {}) {
         <button type="button" class="summary-item pass filter-btn" data-filter="pass" aria-pressed="false"><span>${reportData.summary?.pass || 0}</span><small>Passed</small></button>
         <button type="button" class="summary-item warn filter-btn" data-filter="warn" aria-pressed="false"><span>${reportData.summary?.warn || 0}</span><small>Warnings</small></button>
         <button type="button" class="summary-item fail filter-btn" data-filter="fail" aria-pressed="false"><span>${reportData.summary?.fail || 0}</span><small>Failures</small></button>
+        <button type="button" class="summary-item info filter-btn" data-filter="info" aria-pressed="false"><span>${info}</span><small>Info</small></button>
         <button type="button" class="summary-item filter-btn" data-filter="violation" aria-pressed="false"><span>${totalAxeViolations}</span><small>Axe Violations</small></button>
       </div>
       <div class="filter-row">
@@ -917,7 +897,14 @@ export function generateReport(reportData, options = {}) {
           };
           html += '<table class="issue-table"><thead><tr><th>Rule</th><th>Status</th><th>Impact</th><th>Effort</th><th>Disability</th></tr></thead><tbody>';
           custom.forEach((r, idx) => {
-            const filterVal = r.status === 'pass' ? 'pass' : r.status === 'warn' ? 'warn' : 'fail';
+            const filterVal =
+              r.status === 'pass'
+                ? 'pass'
+                : r.status === 'warn'
+                  ? 'warn'
+                  : r.status === 'info'
+                    ? 'info'
+                    : 'fail';
             const disabilities = (DISABILITY_MAP[r.id] || ['Various']).join('|');
             const rem = getRemediation(r.id, null);
             const wcagLinks = (rem.wcag || []).map((sc) => `<a href="${wcagScUrl(sc)}" target="_blank" rel="noopener">${sc}</a>`).join(', ');
@@ -1114,7 +1101,8 @@ export function generateReport(reportData, options = {}) {
     </div>
 
     <footer>
-      <p><span class="footer-brand">Us</span> · Co-creating digital impact · Accessibility audit. Report generated by an automated suite based on Deque University checklists. Some checks require manual verification.</p>
+      <p><span class="footer-brand">Us</span> · Co-creating digital impact · Assisted accessibility review: automated checks (axe-core and custom heuristics) plus manual verification items — not a substitute for a full expert WCAG audit.</p>
+      <p style="margin-top:10px; font-size:0.88rem;">Scan context: pages are loaded with <code>domcontentloaded</code> (see server env for <code>WAIT_FOR_NETWORKIDLE</code>, timeouts). Media requests may be blocked (<code>BLOCK_MEDIA_REQUESTS</code>) to speed runs. Axe violations are assigned to one primary chapter each for charting (no double-counting). Chapter issue bars sum custom checks and axe items in that chapter.</p>
     </footer>
   </div>
   <script>
@@ -1315,6 +1303,11 @@ export function generateReport(reportData, options = {}) {
     } catch (_) {}
   }
 
+  // Derive {domain, runId} from outputDir = reports/<domain>/<runId>/. The static
+  // developer HTML uses these to link back to the live Astro report.
+  const runIdFromDir = basename(outputDir);
+  const domainFromDir = basename(dirname(outputDir));
+
   const deliverableData = {
     reportData,
     fixOrderItems,
@@ -1324,9 +1317,12 @@ export function generateReport(reportData, options = {}) {
     pass,
     fail,
     warn,
+    info,
     totalAxeViolations,
     total,
     statementMeta,
+    domain: options.domain || domainFromDir,
+    runId: options.runId || runIdFromDir,
   };
   try {
     const paths = generateAllDeliverables(deliverableData, outputDir);

@@ -1,0 +1,78 @@
+---
+interface Step {
+  key: 'history' | 'results' | 'sales' | 'statement' | 'developer';
+  label: string;
+}
+
+interface Props {
+  /** Domain (eg. "about-us.be") if an audit is loaded; null on the home/run-form page. */
+  domain?: string | null;
+  /** Run id under the domain, used to build links. */
+  runId?: string | null;
+  /** Which step is currently active. Pass null for the new-audit / loading screens. */
+  active?: Step['key'] | null;
+  /** Crumb shown when no audit is loaded. Defaults to "New audit". */
+  crumb?: string;
+}
+
+const { domain = null, runId = null, active = null, crumb = 'New audit' } = Astro.props;
+
+const STEPS: Step[] = [
+  { key: 'history', label: 'History' },
+  { key: 'results', label: 'Results' },
+  { key: 'sales', label: 'Sales' },
+  { key: 'statement', label: 'Statement' },
+  { key: 'developer', label: 'Developer' },
+];
+
+function stepHref(stepKey: Step['key']): string | null {
+  if (!domain) return null;
+  if (stepKey === 'history') return `/report/${encodeURIComponent(domain)}/history`;
+  if (!runId) return null;
+  if (stepKey === 'results') return `/report/${encodeURIComponent(domain)}/${encodeURIComponent(runId)}/`;
+  if (stepKey === 'sales') return `/report/${encodeURIComponent(domain)}/${encodeURIComponent(runId)}/sales`;
+  if (stepKey === 'statement') return `/report/${encodeURIComponent(domain)}/${encodeURIComponent(runId)}/statement`;
+  if (stepKey === 'developer') return `/report/${encodeURIComponent(domain)}/${encodeURIComponent(runId)}/accessibility-developers.html`;
+  return null;
+}
+
+const activeLabel = STEPS.find((s) => s.key === active)?.label || '';
+---
+
+<header class="app-header" data-screen-label="App header">
+  <div class="app-header-inner">
+    <a class="brand" href="/">
+      <span class="brand-dot" aria-hidden="true"></span>
+      <span>Accessibility audit <small>by Us</small></span>
+    </a>
+
+    {domain ? (
+      <nav class="nav-crumbs" aria-label="Audit progress" style="font-family: var(--font-mono);">
+        <span style="color: var(--fg-3);">wcag.about-us.be</span>
+        <span class="sep">/</span>
+        {(() => {
+          const href = stepHref('history');
+          return href ? (
+            <a class={`step ${active === 'history' ? 'active' : ''}`} href={href}>{domain}</a>
+          ) : (
+            <span class="step">{domain}</span>
+          );
+        })()}
+        {active && active !== 'history' ? (
+          <>
+            <span class="sep">/</span>
+            <span class="step active">{activeLabel}</span>
+          </>
+        ) : null}
+      </nav>
+    ) : (
+      <nav class="nav-crumbs" aria-label="Audit setup">
+        <span class="step active">{crumb}</span>
+      </nav>
+    )}
+
+    <div style="display:flex; align-items:center; gap:12px;">
+      <span class="muted" style="font-size: 13px;">WCAG 2.2 AA</span>
+    </div>
+  </div>
+</header>

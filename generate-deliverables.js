@@ -25,10 +25,10 @@ ${REPORT_DELIVERABLE_CSS}
   .meta { font-size: 0.9rem; color: var(--text-muted); margin-bottom: 24px; }
   pre { background: #1e1e1e; color: #d4d4d4; padding: 12px; border-radius: 8px; overflow-x: auto; font-size: 0.85rem; }
   .badge { display: inline-block; padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; }
-  .badge.fail { background: #ffebee; color: var(--fail); }
-  .badge.warn { background: #fff3e0; color: var(--warn); }
-  .badge.impact { background: #e3f2fd; }
-  .ai-summary { margin: 22px 0 8px; padding: 18px 18px; border-radius: 12px; border: 1px solid var(--border); background: #f0f7f4; }
+  .badge.fail { background: var(--fail-soft); color: var(--fail); }
+  .badge.warn { background: var(--warn-soft); color: var(--warn); }
+  .badge.impact { background: var(--info-soft); color: var(--info); }
+  .ai-summary { margin: 22px 0 8px; padding: 18px 18px; border-radius: 12px; border: 1px solid var(--border); background: var(--accent-soft); }
   .ai-summary h2 { margin: 0 0 10px; font-size: 1.15rem; }
   .ai-summary h3 { margin: 14px 0 6px; font-size: 1rem; }
   .ai-summary p { margin: 0 0 10px; }
@@ -44,50 +44,380 @@ function escapeHtml(s) {
     .replace(/"/g, '&quot;');
 }
 
+/**
+ * Developer guide deliverable, restyled to match the prototype's view-developer.jsx.
+ * Static HTML; the "Add sprint to Jira" CTA opens an inline modal with vanilla JS.
+ */
 export function generateDeveloperAdvice(data, outputDir) {
-  const { reportData, fixOrderItems } = data;
-  const date = new Date(reportData.generatedAt).toLocaleString();
+  const { reportData, fixOrderItems, domain, runId } = data;
+  const date = new Date(reportData.generatedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+  // /report/<domain>/<runId>/ — link back to the live Astro report from this static deliverable.
+  const backHref = domain && runId
+    ? `/report/${encodeURIComponent(domain)}/${encodeURIComponent(runId)}/`
+    : '';
 
-  let html = `<!DOCTYPE html>
+  // Build a real sprint from the fix order items: severity + effort.
+  const tickets = fixOrderItems.slice(0, 12).map((item, i) => {
+    const sev = item.status === 'fail' || item.status === 'violation' ? 'error' : 'warning';
+    const effort = typeof item.effort === 'number'
+      ? item.effort
+      : (item.impact || '').toLowerCase() === 'high' ? 5
+      : (item.impact || '').toLowerCase() === 'medium' ? 3
+      : 1;
+    return {
+      id: `ACC-${String(101 + i).padStart(3, '0')}`,
+      rule: item.rule || item.id || 'Accessibility fix',
+      severity: sev,
+      points: effort,
+      assignee: ['Frontend team', 'Content team', 'Design team'][i % 3],
+      occurrences: 1,
+    };
+  });
+  const totalPoints = tickets.reduce((s, t) => s + t.points, 0);
+  const blockers = tickets.filter((t) => t.severity === 'error').length;
+
+  // Principle buckets (sample shape — TODO: derive from chapter mapping).
+  const principleSplit = [
+    { key: 'perceivable', label: 'Perceivable', share: 0.4, color: '#BDB4FF', textColor: '#423A75' },
+    { key: 'operable', label: 'Operable', share: 0.3, color: '#8DFFB7', textColor: '#1E625A' },
+    { key: 'understandable', label: 'Understandable', share: 0.18, color: '#A7F0FB', textColor: '#0D4F6E' },
+    { key: 'robust', label: 'Robust', share: 0.12, color: '#F3AAFF', textColor: '#7E1C74' },
+  ];
+  const totalForSplit = fixOrderItems.length;
+  let consumed = 0;
+  const principleGroups = principleSplit.map((p, idx) => {
+    const isLast = idx === principleSplit.length - 1;
+    const count = isLast ? totalForSplit - consumed : Math.round(totalForSplit * p.share);
+    consumed += count;
+    const slice = fixOrderItems.slice(idx * Math.ceil(totalForSplit / principleSplit.length || 1), (idx + 1) * Math.ceil(totalForSplit / principleSplit.length || 1));
+    return { ...p, issues: slice };
+  });
+
+  const ticketRows = tickets.map((t) => `
+        <div class="ticket-row">
+          <span class="mono ticket-key">${escapeHtml(t.id)}</span>
+          <span class="ticket-title">${escapeHtml(t.rule)}</span>
+          <span class="ticket-assignee">${escapeHtml(t.assignee)}</span>
+          <span class="tag tag-lilac">${t.points}</span>
+          <span class="tag tag-${t.severity === 'error' ? 'error' : 'warning'}">${t.severity === 'error' ? 'Error' : 'Warning'}</span>
+        </div>`).join('');
+
+  const principleSections = principleGroups.filter((g) => g.issues.length > 0).map((g) => {
+    const items = g.issues.map((i) => {
+      const wcagLinks = (i.wcag || []).map((sc) => `<a href="${wcagScUrl(sc)}" target="_blank" rel="noopener">${sc}</a>`).join(', ');
+      const sev = i.status === 'fail' || i.status === 'violation' ? 'error' : 'warning';
+      const effort = typeof i.effort === 'number' ? i.effort
+        : (i.impact || '').toLowerCase() === 'high' ? 5
+        : (i.impact || '').toLowerCase() === 'medium' ? 3 : 1;
+      return `
+        <details class="issue-details">
+          <summary>
+            <span class="summary-left">
+              <span class="tag tag-${sev === 'error' ? 'error' : 'warning'}">${sev === 'error' ? 'Error' : 'Warning'}</span>
+              <strong>${escapeHtml(i.rule || i.id || 'Issue')}</strong>
+              <span class="muted mono summary-meta">${i.id ? escapeHtml(i.id) : ''}${wcagLinks ? ` · WCAG ${wcagLinks}` : ''}</span>
+            </span>
+            <span class="muted summary-effort">${effort} pt${effort === 1 ? '' : 's'}</span>
+          </summary>
+          ${i.snippet ? `<p class="issue-desc">${escapeHtml(i.snippet)}</p>` : ''}
+          ${i.url ? `<p class="muted issue-url">Found on <span class="mono">${escapeHtml(i.url)}</span></p>` : ''}
+        </details>`;
+    }).join('');
+    return `
+      <section class="card-flat principle-card">
+        <header class="principle-head">
+          <span class="principle-icon" style="background:${g.color}; color:${g.textColor};">${escapeHtml(g.label[0])}</span>
+          <h3>${escapeHtml(g.label)}</h3>
+          <span class="muted">· ${g.issues.length} issue${g.issues.length === 1 ? '' : 's'} to fix</span>
+        </header>
+        <div class="principle-body">${items}</div>
+      </section>`;
+  }).join('');
+
+  const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Developer guide – Accessibility fixes</title>
-  ${REPORT_BRAND_HEAD}
-  <style>${STYLES}</style>
+  <title>Developer guide · ${escapeHtml(reportData.urls?.[0] || 'Accessibility')}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Public+Sans:ital,wght@0,300..900;1,400..700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --us-cream: #F5F4E5; --us-ink: #19191B; --us-white: #FFFFFF;
+      --us-peach: #FFB985; --us-peach-text: #872012;
+      --us-mint: #8DFFB7; --us-mint-text: #1E625A;
+      --us-sky: #A7F0FB; --us-sky-text: #0D4F6E;
+      --us-pink: #F3AAFF; --us-pink-text: #7E1C74;
+      --us-lilac: #BDB4FF; --us-lilac-deep: #6257E8; --us-lilac-text: #423A75;
+      --us-grad-iri: linear-gradient(135deg, #FFB985 0%, #F3AAFF 25%, #BDB4FF 55%, #A7F0FB 80%, #8DFFB7 100%);
+      --us-n-20: #F9F9F9; --us-n-30: #F3F3F3; --us-n-40: #EAEAEA;
+      --fg-1: #19191B; --fg-2: #2E2E2E; --fg-3: #707070;
+      --border-subtle: #EAEAEA; --border-default: #D9D9D9;
+      --r-md: 16px; --r-lg: 24px; --r-pill: 500px;
+      --shadow-card: 0 1px 2px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.06);
+      --shadow-pop: 0 4px 12px rgba(0,0,0,0.08), 0 16px 40px rgba(0,0,0,0.10);
+      --font-display: "Bricolage Grotesque", system-ui, sans-serif;
+      --font-body: "Public Sans", system-ui, sans-serif;
+      --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", monospace;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; padding: 0; background: var(--us-cream); color: var(--fg-1);
+      font-family: var(--font-body); font-weight: 300; line-height: 1.65;
+      -webkit-font-smoothing: antialiased;
+    }
+    h1, h2, h3, h4 { font-family: var(--font-display); font-weight: 700; letter-spacing: -0.02em; line-height: 1.1; margin: 0; }
+    .container { max-width: 1280px; margin: 0 auto; padding: 48px 32px 96px; }
+    .eyebrow {
+      font-size: 12px; font-weight: 600; letter-spacing: 0.08em;
+      text-transform: uppercase; color: var(--fg-3); display: inline-flex; align-items: center; gap: 8px;
+    }
+    .eyebrow .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--us-lilac-deep); display: inline-block; }
+    .muted { color: var(--fg-3); }
+    .mono { font-family: var(--font-mono); }
+    .header-row { display: grid; grid-template-columns: 1fr auto; gap: 24px; align-items: center; margin-bottom: 36px; }
+    .header-row h1 { font-size: clamp(36px, 4.5vw, 56px); margin-top: 12px; margin-bottom: 10px; }
+    .header-row .lead { font-size: 20px; max-width: 640px; line-height: 1.6; color: var(--fg-2); }
+    .btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 10px 16px; border-radius: var(--r-pill); border: 1px solid var(--us-ink);
+      background: var(--us-ink); color: var(--us-cream); cursor: pointer;
+      font-family: var(--font-body); font-size: 14px; font-weight: 500; text-decoration: none;
+      transition: transform 0.1s ease, box-shadow 0.1s ease;
+    }
+    .btn:hover { transform: translateY(-1px); box-shadow: var(--shadow-card); }
+    .btn-grad { background: var(--us-grad-iri); color: var(--us-ink); border-color: transparent; }
+    .btn-secondary { background: var(--us-white); color: var(--us-ink); border-color: var(--border-default); }
+    .btn-lg { padding: 14px 22px; font-size: 16px; }
+    .btn-sm { padding: 6px 14px; font-size: 13px; }
+    .btn-cream { background: var(--us-cream); color: var(--us-ink); border-color: transparent; }
+    .btn-ghost { background: transparent; color: var(--us-ink); border-color: var(--border-default); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .back-link { margin-bottom: 12px; }
+    .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 32px; }
+    @media (max-width: 800px) { .stat-grid { grid-template-columns: 1fr 1fr; } }
+    .stat { padding: 18px 20px; border-radius: var(--r-md); }
+    .stat-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; opacity: 0.75; margin-bottom: 6px; }
+    .stat-value { font-family: var(--font-display); font-size: 28px; font-weight: 700; line-height: 1.1; }
+    .stat-sub { font-size: 12px; opacity: 0.7; margin-top: 4px; }
+    .stat.ink { background: var(--us-ink); color: var(--us-cream); }
+    .stat.lilac { background: var(--us-lilac); color: var(--us-lilac-text); }
+    .stat.mint { background: var(--us-mint); color: var(--us-mint-text); }
+    .stat.peach { background: var(--us-peach); color: var(--us-peach-text); }
+    .card-flat { background: var(--us-white); border: 1px solid var(--border-subtle); border-radius: var(--r-md); padding: 20px; box-shadow: var(--shadow-card); }
+    .ticket-card { padding: 0; margin-bottom: 40px; }
+    .ticket-head { padding: 16px 24px; border-bottom: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center; }
+    .ticket-head h2 { font-size: 20px; }
+    .ticket-row {
+      display: grid; grid-template-columns: 110px 1fr 160px 80px 120px;
+      gap: 16px; align-items: center; padding: 14px 24px; border-bottom: 1px solid var(--border-subtle);
+    }
+    .ticket-row:last-child { border-bottom: 0; }
+    .ticket-row.head {
+      background: var(--us-n-20); font-size: 11px; text-transform: uppercase;
+      letter-spacing: 0.08em; color: var(--fg-3); font-weight: 600;
+    }
+    .ticket-key { font-size: 12px; font-weight: 600; }
+    .ticket-title { font-weight: 500; font-size: 14px; }
+    .ticket-assignee { font-size: 13px; color: var(--fg-2); }
+    .tag { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: var(--r-pill); font-size: 12px; font-weight: 500; }
+    .tag-error { background: #FCE8E5; color: var(--us-peach-text); }
+    .tag-warning { background: var(--us-peach); color: var(--us-peach-text); }
+    .tag-lilac { background: var(--us-lilac); color: var(--us-lilac-text); }
+    .principles { display: flex; flex-direction: column; gap: 28px; }
+    .principle-card { padding: 28px; }
+    .principle-head { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; }
+    .principle-head h3 { font-size: 22px; }
+    .principle-icon {
+      width: 40px; height: 40px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-family: var(--font-display); font-weight: 700; font-size: 18px;
+    }
+    .principle-body { display: flex; flex-direction: column; gap: 14px; }
+    .issue-details { border-top: 1px solid var(--border-subtle); padding-top: 14px; }
+    .issue-details summary { cursor: pointer; display: flex; justify-content: space-between; align-items: center; list-style: none; gap: 12px; }
+    .issue-details summary::-webkit-details-marker { display: none; }
+    .summary-left { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .summary-meta { font-size: 12px; }
+    .summary-effort { font-size: 13px; }
+    .issue-desc { font-size: 14px; color: var(--fg-2); margin: 10px 0 6px; line-height: 1.6; }
+    .issue-url { font-size: 13px; }
+
+    /* Modal styles */
+    .modal-backdrop {
+      position: fixed; inset: 0; background: rgba(25, 25, 27, 0.5);
+      backdrop-filter: blur(8px); z-index: 200;
+      display: none; align-items: center; justify-content: center; padding: 24px;
+    }
+    .modal-backdrop.open { display: flex; }
+    .modal {
+      width: 640px; max-width: 100%; max-height: 90vh;
+      background: var(--us-white); border-radius: var(--r-lg); overflow: hidden;
+      box-shadow: var(--shadow-pop); display: flex; flex-direction: column;
+    }
+    .modal-head, .modal-body, .modal-foot { padding: 20px 28px; }
+    .modal-head { border-bottom: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center; }
+    .modal-foot { border-top: 1px solid var(--border-subtle); background: var(--us-cream); display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .modal-body { flex: 1; overflow-y: auto; }
+    .project-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 16px; }
+    .project-btn {
+      padding: 14px 16px; border: 1.5px solid var(--border-default);
+      border-radius: 12px; background: var(--us-white);
+      display: flex; align-items: center; gap: 12px; cursor: pointer;
+      text-align: left; font-family: var(--font-body); font-size: 14px;
+    }
+    .project-btn.active { border-color: var(--us-ink); background: var(--us-cream); }
+    .project-key {
+      width: 32px; height: 32px; border-radius: 8px; color: white;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 12px;
+    }
+
+    .footer-foot { margin-top: 32px; padding-top: 16px; border-top: 1px solid var(--border-subtle); font-size: 13px; color: var(--fg-3); }
+  </style>
 </head>
 <body>
   <div class="container">
-    ${buildDeliverableHeaderHtml()}
-    <h1>Developer guide</h1>
-    <p class="meta">Accessibility issues and how to fix them · Generated ${date}</p>
-    <p>Prioritize high-impact, simple fixes first. Each issue includes WCAG references and copy-paste solutions.</p>
-`;
+    <header class="header-row">
+      <div>
+        ${backHref ? `<a class="btn btn-ghost btn-sm back-link" href="${backHref}">← Back to report</a>` : ''}
+        <span class="eyebrow"><span class="dot"></span>For the engineers</span>
+        <h1>Here's what to fix, in what order.</h1>
+        <p class="lead">${tickets.length} ticket${tickets.length === 1 ? '' : 's'} · ${totalPoints} story points · ~2 weeks. Each ticket includes the rule, an example fix, and the WCAG criterion.</p>
+      </div>
+      <button class="btn btn-grad btn-lg" id="add-to-jira-btn" type="button">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M11.5 2L2 11.5l3 3L11.5 8 18 14.5l-3 3 3 3 9.5-9.5L11.5 2z" opacity="0.95"/>
+        </svg>
+        Add sprint to Jira
+      </button>
+    </header>
 
-  if (fixOrderItems.length === 0) {
-    html += '<p>No issues requiring fixes were found.</p>';
-  } else {
-    fixOrderItems.forEach((item, i) => {
-      const wcagLinks = (item.wcag || []).map((sc) => `<a href="${wcagScUrl(sc)}" target="_blank" rel="noopener">${sc}</a>`).join(', ');
-      html += `
-    <div style="margin-bottom: 24px; padding-bottom: 24px; border-bottom: 1px solid var(--border);">
-      <h3>${i + 1}. ${escapeHtml(item.rule)}</h3>
-      <p><span class="badge ${item.status === 'fail' ? 'fail' : 'warn'}">${item.status}</span>
-         <span class="badge impact">Impact: ${item.impact}</span>
-         <span class="badge impact">Effort: ${item.effort}</span>
-         ${item.url ? `<br><small>URL: ${escapeHtml(item.url)}</small>` : ''}
-      </p>
-      ${wcagLinks ? `<p>WCAG: ${wcagLinks}</p>` : ''}
-      <p><strong>Fix:</strong></p>
-      <pre>${escapeHtml(item.snippet || 'See WCAG guidelines.')}</pre>
-    </div>`;
-    });
-  }
+    <section class="stat-grid">
+      <div class="stat ink">
+        <div class="stat-label">Sprint</div>
+        <div class="stat-value">A11y sprint</div>
+        <div class="stat-sub">2 weeks</div>
+      </div>
+      <div class="stat lilac">
+        <div class="stat-label">Tickets</div>
+        <div class="stat-value">${tickets.length}</div>
+        <div class="stat-sub">${blockers} blocker${blockers === 1 ? '' : 's'}</div>
+      </div>
+      <div class="stat mint">
+        <div class="stat-label">Story points</div>
+        <div class="stat-value">${totalPoints}</div>
+        <div class="stat-sub">Estimated by issue impact</div>
+      </div>
+      <div class="stat peach">
+        <div class="stat-label">Generated</div>
+        <div class="stat-value">${escapeHtml(date)}</div>
+        <div class="stat-sub">From this audit run</div>
+      </div>
+    </section>
 
-  html += `
-    <div class="deliverable-footer"><span class="footer-brand">Us</span> · Co-creating digital impact · Developer remediation guide</div>
+    <section class="card-flat ticket-card">
+      <div class="ticket-head">
+        <h2>Proposed tickets</h2>
+        <span class="muted" style="font-size: 13px;">Sorted by severity → effort</span>
+      </div>
+      <div class="ticket-row head">
+        <span>Key</span><span>Title</span><span>Assignee</span><span>Points</span><span>Severity</span>
+      </div>
+      ${ticketRows}
+    </section>
+
+    <h2 style="font-size: 28px; margin-bottom: 18px;">Fixes by principle</h2>
+    <div class="principles">
+      ${principleSections || '<p class="muted">No outstanding fixes — well done!</p>'}
+    </div>
+    <p class="muted" style="font-size: 11px; margin-top: 12px;"><em>Sample principle split — TODO: derive from real chapter mapping.</em></p>
+
+    <div class="footer-foot">
+      Generated by Us · Co-creating digital impact · Developer remediation guide
+    </div>
   </div>
+
+  <div class="modal-backdrop" id="jira-modal" role="dialog" aria-modal="true" aria-labelledby="jira-modal-title">
+    <div class="modal">
+      <div class="modal-head">
+        <div>
+          <div class="eyebrow"><span class="dot"></span>Jira</div>
+          <h2 id="jira-modal-title" style="font-size: 22px; margin-top: 6px;">Add sprint to Jira</h2>
+        </div>
+        <button class="btn btn-secondary btn-sm" type="button" data-close>✕</button>
+      </div>
+      <div class="modal-body">
+        <div style="font-size: 13px; font-weight: 500; margin-bottom: 10px;">Pick a project</div>
+        <div class="project-grid" id="project-grid">
+          <button class="project-btn" data-project="NS" type="button">
+            <span class="project-key" style="background:#6257E8;">NS</span>
+            <span><span style="display:block; font-weight:500;">Northstar Web</span><span style="display:block; font-size:11px; color: var(--fg-3);">Frontend platform</span></span>
+          </button>
+          <button class="project-btn" data-project="PD" type="button">
+            <span class="project-key" style="background:#41BD73;">PD</span>
+            <span><span style="display:block; font-weight:500;">Product Catalog</span><span style="display:block; font-size:11px; color: var(--fg-3);">Catalog</span></span>
+          </button>
+          <button class="project-btn" data-project="CK" type="button">
+            <span class="project-key" style="background:#FFB985;">CK</span>
+            <span><span style="display:block; font-weight:500;">Checkout</span><span style="display:block; font-size:11px; color: var(--fg-3);">Commerce</span></span>
+          </button>
+          <button class="project-btn" data-project="DS" type="button">
+            <span class="project-key" style="background:#F3AAFF;">DS</span>
+            <span><span style="display:block; font-weight:500;">Design System</span><span style="display:block; font-size:11px; color: var(--fg-3);">Design</span></span>
+          </button>
+        </div>
+        <div style="font-size: 13px; font-weight: 500; margin: 16px 0 10px;">Tickets to create (${tickets.length})</div>
+        <div>
+          ${tickets.map((t) => `<div style="display:grid; grid-template-columns:auto 1fr auto; gap:12px; padding:8px 0; font-size:13px; align-items:center;"><span class="mono muted" style="font-size:11px;">${escapeHtml(t.id)}</span><span>${escapeHtml(t.rule)}</span><span class="tag tag-lilac" style="font-size:11px;">${t.points} pts</span></div>`).join('')}
+        </div>
+      </div>
+      <div class="modal-foot">
+        <span class="muted" style="font-size: 13px;" id="jira-summary">Pick a project to continue.</span>
+        <div style="display: flex; gap: 8px;">
+          <button class="btn btn-secondary btn-sm" type="button" data-close>Cancel</button>
+          <button class="btn btn-sm" type="button" id="jira-confirm" disabled>Create ${tickets.length} tickets</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      var modal = document.getElementById('jira-modal');
+      var openBtn = document.getElementById('add-to-jira-btn');
+      var confirmBtn = document.getElementById('jira-confirm');
+      var summary = document.getElementById('jira-summary');
+      var projectGrid = document.getElementById('project-grid');
+      var selected = null;
+
+      function openModal() { modal.classList.add('open'); }
+      function closeModal() { modal.classList.remove('open'); }
+
+      openBtn?.addEventListener('click', openModal);
+      modal.addEventListener('click', function (e) {
+        if (e.target === modal) closeModal();
+      });
+      modal.querySelectorAll('[data-close]').forEach(function (b) {
+        b.addEventListener('click', closeModal);
+      });
+      projectGrid?.addEventListener('click', function (e) {
+        var btn = e.target.closest('[data-project]');
+        if (!btn) return;
+        projectGrid.querySelectorAll('.project-btn').forEach(function (b) { b.classList.remove('active'); });
+        btn.classList.add('active');
+        selected = btn.getAttribute('data-project');
+        confirmBtn.disabled = false;
+        summary.textContent = 'Will create ${tickets.length} issues in ' + (btn.querySelector('span span')?.textContent || selected) + '.';
+      });
+      confirmBtn?.addEventListener('click', function () {
+        summary.textContent = 'Sprint queued — open Jira to verify (demo mode).';
+        confirmBtn.disabled = true;
+      });
+    })();
+  </script>
 </body>
 </html>`;
 
@@ -246,13 +576,13 @@ function computeClientIssueMetrics(reportData, fixOrderItems) {
 
 function computeCategoryStats(fixOrderItems) {
   const defs = [
-    { key: 'contrast', label: 'Color contrast', color: '#c73b42', match: (i) => /contrast/i.test(i.id || '') || /contrast/i.test(i.rule || '') },
-    { key: 'images', label: 'Missing alt text', color: '#d98200', match: (i) => /img-alt|image-alt|alt/i.test(i.id || '') || /alt text|image/i.test(i.rule || '') },
-    { key: 'forms', label: 'Form labels', color: '#3b6db1', match: (i) => /label|form/i.test(i.id || '') || /label|form/i.test(i.rule || '') },
-    { key: 'keyboard', label: 'Keyboard nav', color: '#3f8f52', match: (i) => /keyboard|tabindex|focus-order|focus-visible|focus/i.test(i.id || '') || /keyboard|focus|tab/i.test(i.rule || '') },
-    { key: 'reader', label: 'Screen reader', color: '#7c72d2', match: (i) => /aria|name-role|iframe|landmark|region|dynamic/i.test(i.id || '') || /screen reader|aria/i.test(i.rule || '') },
-    { key: 'links', label: 'Link clarity', color: '#8b8b83', match: (i) => /link/i.test(i.id || '') || /link/i.test(i.rule || '') },
-    { key: 'headings', label: 'Headings', color: '#58bea0', match: (i) => /heading/i.test(i.id || '') || /heading/i.test(i.rule || '') },
+    { key: 'contrast', label: 'Color contrast', color: '#df2020', match: (i) => /contrast/i.test(i.id || '') || /contrast/i.test(i.rule || '') },
+    { key: 'images', label: 'Missing alt text', color: '#eb8916', match: (i) => /img-alt|image-alt|alt/i.test(i.id || '') || /alt text|image/i.test(i.rule || '') },
+    { key: 'forms', label: 'Form labels', color: '#3c81e7', match: (i) => /label|form/i.test(i.id || '') || /label|form/i.test(i.rule || '') },
+    { key: 'keyboard', label: 'Keyboard nav', color: '#048255', match: (i) => /keyboard|tabindex|focus-order|focus-visible|focus/i.test(i.id || '') || /keyboard|focus|tab/i.test(i.rule || '') },
+    { key: 'reader', label: 'Screen reader', color: '#6257e8', match: (i) => /aria|name-role|iframe|landmark|region|dynamic/i.test(i.id || '') || /screen reader|aria/i.test(i.rule || '') },
+    { key: 'links', label: 'Link clarity', color: '#707070', match: (i) => /link/i.test(i.id || '') || /link/i.test(i.rule || '') },
+    { key: 'headings', label: 'Headings', color: '#41bd73', match: (i) => /heading/i.test(i.id || '') || /heading/i.test(i.rule || '') },
   ];
   const counts = Object.fromEntries(defs.map((d) => [d.key, 0]));
   (fixOrderItems || []).forEach((item) => {
@@ -315,7 +645,7 @@ function buildPostDashboardSectionHtml({ fixOrderItems, scoreClamp, criticalIssu
       <div class="bench-grid">
         <div class="bench-card"><small>Better than</small><strong>${betterThan}%</strong></div>
         <div class="bench-card"><small>Industry avg</small><strong>${industryAvg} / 100</strong></div>
-        <div class="bench-card"><small>Gap to avg</small><strong style="color:${gap < 0 ? '#a73636' : '#2e7d32'}">${gap > 0 ? '+' : ''}${gap} pts</strong></div>
+        <div class="bench-card"><small>Gap to avg</small><strong style="color:${gap < 0 ? '#df2020' : '#41bd73'}">${gap > 0 ? '+' : ''}${gap} pts</strong></div>
         <div class="bench-card"><small>Top 10% threshold</small><strong>&ge; ${top10Threshold}</strong></div>
       </div>
       <div class="bench-note bad">Your score of ${scoreClamp} is ${gap < 0 ? 'below' : 'above'} the industry average of ${industryAvg}. Closing to average requires fixing roughly ${closeGapIssues} additional issues.</div>
@@ -336,7 +666,7 @@ function buildPostDashboardSectionHtml({ fixOrderItems, scoreClamp, criticalIssu
         <table class="cat-table">
           <thead><tr><th>Category</th><th>You</th><th>Avg</th><th>Diff</th></tr></thead>
           <tbody>
-            ${categoryScores.map((r) => `<tr><td>${escapeHtml(r.label)}</td><td>${r.you}</td><td>${r.avg}</td><td style="color:${r.diff >= 0 ? '#2e7d32' : '#a73636'}">${r.diff >= 0 ? '+' : ''}${r.diff}</td></tr>`).join('')}
+            ${categoryScores.map((r) => `<tr><td>${escapeHtml(r.label)}</td><td>${r.you}</td><td>${r.avg}</td><td style="color:${r.diff >= 0 ? '#41bd73' : '#df2020'}">${r.diff >= 0 ? '+' : ''}${r.diff}</td></tr>`).join('')}
           </tbody>
         </table>
       </div>
@@ -416,34 +746,34 @@ export function generateClientPresentation(data, outputDir) {
     .kpi { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
     .kpi .label { font-size: .92rem; color: var(--text-muted); margin-bottom: 6px; }
     .kpi .value { font-size: 2rem; font-weight: 700; line-height: 1; }
-    .kpi .value.warn { color: #c97700; }
+    .kpi .value.warn { color: #b35610; }
     .kpi .value.fail { color: var(--fail); }
     .compliance-card { display: grid; grid-template-columns: 108px 1fr; gap: 16px; background: var(--bg); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin: 0 0 18px; align-items: center; }
-    .score-ring { width: 88px; height: 88px; border-radius: 50%; background: conic-gradient(var(--accent) ${scoreClamp}%, #e8e6e1 0); display: grid; place-items: center; margin: 0 auto; }
-    .score-ring::before { content: "${scoreClamp}"; width: 66px; height: 66px; border-radius: 50%; background: #fff; display: grid; place-items: center; font-weight: 700; color: #9b5e00; }
+    .score-ring { width: 88px; height: 88px; border-radius: 50%; background: conic-gradient(var(--accent) ${scoreClamp}%, var(--border) 0); display: grid; place-items: center; margin: 0 auto; }
+    .score-ring::before { content: "${scoreClamp}"; width: 66px; height: 66px; border-radius: 50%; background: #fff; display: grid; place-items: center; font-weight: 700; color: #b35610; }
     .compliance-title { margin: 0 0 6px; font-size: 1.7rem; line-height: 1.15; }
     .compliance-copy { margin: 0; color: var(--text); }
     .status-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
     .status-pill { padding: 6px 10px; border-radius: 8px; font-size: .92rem; font-weight: 600; }
-    .status-pill.a { background: #e8f5e9; color: #2e7d32; }
-    .status-pill.aa { background: #fff3e0; color: #8c5b00; }
-    .status-pill.aaa { background: #ffebee; color: #a73636; }
+    .status-pill.a { background: var(--pass-soft); color: var(--pass); }
+    .status-pill.aa { background: var(--warn-soft); color: #b35610; }
+    .status-pill.aaa { background: var(--fail-soft); color: var(--fail); }
     .stats-panels { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 0 0 22px; }
     .panel { background: var(--bg); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
     .panel h3 { margin: 0 0 12px; letter-spacing: .06em; text-transform: uppercase; font-size: .95rem; }
     .severity-row { display: grid; grid-template-columns: 110px 1fr 42px; align-items: center; gap: 10px; margin-bottom: 10px; }
     .severity-row .bar { height: 12px; background: #ecebea; border-radius: 999px; overflow: hidden; }
     .severity-row .fill { height: 100%; border-radius: 999px; }
-    .sev-critical { background: #c73b42; } .sev-serious { background: #d98200; } .sev-moderate { background: #3b6db1; } .sev-minor { background: #88887f; }
+    .sev-critical { background: #df2020; } .sev-serious { background: #eb8916; } .sev-moderate { background: #3c81e7; } .sev-minor { background: #707070; }
     .most-pages table { width: 100%; border-collapse: collapse; }
     .most-pages th, .most-pages td { padding: 8px 0; border-bottom: 1px solid var(--border); font-size: .95rem; }
     .most-pages th { color: var(--text-muted); font-weight: 600; }
     .sev-tag { padding: 3px 8px; border-radius: 999px; font-size: .82rem; font-weight: 600; }
-    .sev-tag.critical { background: #ffebee; color: #a73636; }
-    .sev-tag.serious { background: #fff3e0; color: #8c5b00; }
-    .sev-tag.moderate { background: #e3f2fd; color: #1f5f97; }
-    .sev-tag.minor { background: #f1f1ef; color: #686860; }
-    .phase { padding: 16px; margin: 12px 0; border-left: 4px solid var(--accent); background: #f0f7f4; border-radius: 0 8px 8px 0; }
+    .sev-tag.critical { background: var(--fail-soft); color: var(--fail); }
+    .sev-tag.serious { background: var(--warn-soft); color: #b35610; }
+    .sev-tag.moderate { background: var(--info-soft); color: #294899; }
+    .sev-tag.minor { background: var(--accent-soft); color: var(--text-muted); }
+    .phase { padding: 16px; margin: 12px 0; border-left: 4px solid var(--accent); background: var(--accent-soft); border-radius: 0 8px 8px 0; }
     .phase h3 { margin-top: 0; }
     .roadmap { margin-top: 24px; background: var(--bg); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
     .roadmap .item { display: grid; grid-template-columns: 38px 1fr; gap: 12px; padding: 16px 0; border-top: 1px solid var(--border); }
@@ -453,9 +783,9 @@ export function generateClientPresentation(data, outputDir) {
     .roadmap p { margin: 0 0 9px; color: var(--text); font-size: 0.98rem; }
     .badge-line { display: flex; gap: 8px; flex-wrap: wrap; }
     .badge-line .pill { padding: 5px 12px; border-radius: 999px; font-size: .88rem; line-height: 1; font-weight: 600; background: #fff; border: 1px solid var(--border); min-height: 28px; display: inline-flex; align-items: center; }
-    .pill.impact-high { color: #a73636; background: #ffebee; border-color: #ffd7db; }
-    .pill.impact-medium { color: #8c5b00; background: #fff3e0; border-color: #ffe5bf; }
-    .pill.impact-low { color: #2e7d32; background: #e8f5e9; border-color: #cfe9d0; }
+    .pill.impact-high { color: var(--fail); background: var(--fail-soft); border-color: #f5b4b4; }
+    .pill.impact-medium { color: #b35610; background: var(--warn-soft); border-color: #f5d4a8; }
+    .pill.impact-low { color: var(--pass); background: var(--pass-soft); border-color: #b8e8cc; }
     .extra-stats { margin-top: 22px; background: var(--bg); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
     .extra-stats h2 { margin: 0 0 12px; font-size: 1rem; letter-spacing: .06em; text-transform: uppercase; }
     .category-bars { display: grid; grid-template-columns: repeat(7, minmax(0,1fr)); gap: 10px; align-items: end; min-height: 220px; }
@@ -473,14 +803,14 @@ export function generateClientPresentation(data, outputDir) {
     .bench-card small { color: var(--text-muted); display: block; margin-bottom: 6px; }
     .bench-card strong { font-size: 2rem; line-height: 1; }
     .bench-note { border-radius: 10px; padding: 10px 12px; margin-top: 8px; font-size: .95rem; }
-    .bench-note.bad { background: #fdecef; color: #7f2930; }
-    .bench-note.info { background: #eaf2fd; color: #1f4e7a; }
-    .bench-note.good { background: #e8f4df; color: #2a5d2f; margin-top: 0; }
+    .bench-note.bad { background: var(--fail-soft); color: #872012; }
+    .bench-note.info { background: var(--info-soft); color: #294899; }
+    .bench-note.good { background: var(--pass-soft); color: #048255; margin-top: 0; }
     .dist-card { position: relative; background: #fff; border: 1px solid var(--border); border-radius: 10px; padding: 14px; min-height: 190px; }
     .dist-area { position: absolute; left: 14px; right: 14px; bottom: 38px; top: 36px; background: linear-gradient(180deg, rgba(144,182,221,.7) 0%, rgba(144,182,221,.5) 60%, rgba(144,182,221,.35) 100%); clip-path: polygon(0% 100%, 8% 98%, 16% 95%, 28% 88%, 40% 76%, 50% 58%, 58% 42%, 66% 30%, 75% 24%, 84% 31%, 92% 48%, 100% 70%, 100% 100%); border-top: 2px solid #2f6fb1; }
     .dist-marker { position: absolute; bottom: 62px; transform: translateX(-50%); font-size: .9rem; font-weight: 600; }
     .dist-marker::after { content: ''; position: absolute; left: 50%; transform: translateX(-50%); top: 20px; width: 2px; height: 72px; background: currentColor; opacity: .65; }
-    .dist-marker.you { color: #a73636; } .dist-marker.avg { color: #6f7782; }
+    .dist-marker.you { color: var(--fail); } .dist-marker.avg { color: #707070; }
     .dist-axis { position: absolute; left: 14px; right: 14px; bottom: 8px; display: flex; justify-content: space-between; font-size: .86rem; color: var(--text-muted); }
     .split { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
     .cat-table { width: 100%; border-collapse: collapse; }
@@ -496,12 +826,12 @@ export function generateClientPresentation(data, outputDir) {
     .impact-grid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px; }
     .impact-card { background: #fff; border: 1px solid var(--border); border-radius: 10px; padding: 12px; }
     .impact-icon { width: 34px; height: 34px; border-radius: 999px; display: grid; place-items: center; font-weight: 700; margin-bottom: 8px; }
-    .impact-icon.warn { background: #fdecef; color: #9f2e36; }
-    .impact-icon.cash { background: #fff4e6; color: #8c5b00; }
-    .impact-icon.up { background: #ecf7e8; color: #2e7d32; }
+    .impact-icon.warn { background: var(--fail-soft); color: var(--fail); }
+    .impact-icon.cash { background: var(--warn-soft); color: #b35610; }
+    .impact-icon.up { background: var(--pass-soft); color: var(--pass); }
     .impact-card h4 { margin: 0 0 6px; font-size: 1.12rem; }
     .impact-card p { margin: 0; color: var(--text); }
-    .impact-highlight { margin-top: 12px; background: #fff2de; color: #6f4a08; border: 1px solid #f0ddbf; border-radius: 10px; padding: 12px; font-size: 1.03rem; }
+    .impact-highlight { margin-top: 12px; background: var(--warn-soft); color: #872012; border: 1px solid rgba(235, 137, 22, 0.35); border-radius: 10px; padding: 12px; font-size: 1.03rem; }
     @media (max-width: 900px) { .kpi-grid { grid-template-columns: repeat(2, minmax(0,1fr)); } .stats-panels { grid-template-columns: 1fr; } .compliance-card { grid-template-columns: 1fr; } .quick-grid { grid-template-columns: 1fr; } .bench-grid { grid-template-columns: repeat(2, minmax(0,1fr)); } .category-bars { grid-template-columns: repeat(2, minmax(0,1fr)); min-height: 0; } }
     @media (max-width: 900px) { .split { grid-template-columns: 1fr; } .dist-marker::after { height: 56px; } }
     @media (max-width: 900px) { .impact-grid { grid-template-columns: 1fr; } }
@@ -747,7 +1077,7 @@ export function generateAccessibilityStatement(data, outputDir) {
     .statement-section ul.measures li { margin-bottom: 8px; }
     .tech-list { margin: 12px 0; padding-left: 24px; }
     .contact-block p { margin: 6px 0; }
-    .placeholder { background: #fff8e1; padding: 2px 6px; border-radius: 4px; }
+    .placeholder { background: var(--warn-soft); padding: 2px 6px; border-radius: 4px; }
     .limitation-block { margin: 24px 0; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
     .limitation-block:last-child { border-bottom: none; }
     .limitation-sc { font-size: 1.05rem; margin: 0 0 12px; font-weight: 600; }

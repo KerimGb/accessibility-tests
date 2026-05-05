@@ -1,8 +1,8 @@
-# Deployment: Combell + Railway
+# Deployment: Combell + remote Node backend
 
-This guide explains how to run the accessibility tester with:
-- **Combell** (shared hosting) – PHP frontend (the form)
-- **Railway** (free tier) – Node.js backend (runs the actual tests)
+This guide describes a **split** setup: **Combell** (PHP or static frontend) + a **Node.js + Playwright** API on another host (e.g. Railway, a VPS, or managed Node hosting).
+
+For **running everything on your machine first**, use [SETUP-GUIDE.md](SETUP-GUIDE.md) and [README.md](README.md).
 
 ---
 
@@ -43,7 +43,7 @@ The app needs Chromium for testing. Add a build script:
    and set Railway’s build command to `npm run build` (in addition to `npm install`).
 
 **Note:** Railway’s default environment may not support Playwright. If the deploy fails or tests fail with “Executable doesn’t exist”, consider:
-- [Render](https://render.com) (has better support for headless browsers), or
+- A **memory-capable** Node host (Playwright/Chromium needs RAM — often **512MB+**, preferably **1–2GB** or more), or
 - A small VPS (DigitalOcean, etc.) where you have full control
 
 ### 1.5 Deploy and get the URL
@@ -114,4 +114,4 @@ The form lives on Combell; the loading page and report are served by Railway.
 |--------|----------|
 | "Request failed" or CORS error | Ensure Railway is running and `config.php` has the correct URL. Add your Combell domain to `ALLOWED_ORIGIN` if you set it. |
 | "Report file was not created" | Check the `--output-id` fix is in place. Railway logs may show more details. |
-| Playwright/Chromium errors on Railway | Railway may not fully support Playwright. Consider Render or a VPS. |
+| Playwright/Chromium errors on Railway | Try a larger Node tier or a VPS with enough RAM for Chromium. |
