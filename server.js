@@ -6,10 +6,12 @@
  */
 import { dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { loadLocalEnv } from './server/load-env.mjs';
 import { initDb, dbPool } from './server/db.js';
 import { createAccessibilityApp } from './server/create-app.mjs';
 
 const repoRoot = dirname(fileURLToPath(import.meta.url));
+loadLocalEnv(repoRoot);
 const PORT = process.env.PORT || 3456;
 
 const app = createAccessibilityApp(repoRoot);

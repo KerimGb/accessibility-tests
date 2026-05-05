@@ -6,11 +6,13 @@ import './set-reports-env.mjs';
 import express from 'express';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
+import { loadLocalEnv } from '../server/load-env.mjs';
 import { initDb, dbPool } from '../server/db.js';
 import { createAccessibilityApp } from '../server/create-app.mjs';
 
 const webRoot = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(webRoot, '..');
+loadLocalEnv(repoRoot);
 const PORT = Number(process.env.PORT) || 3456;
 
 const { handler } = await import('./dist/server/entry.mjs');
