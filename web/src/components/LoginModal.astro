@@ -76,7 +76,9 @@
 
   async function refreshAuthGate() {
     try {
-      const res = await fetch('/api/auth/status', { credentials: 'same-origin' });
+      const url = typeof globalThis.wcagApiUrl === 'function' ? globalThis.wcagApiUrl('/api/auth/status') : '/api/auth/status';
+      const creds = typeof globalThis.wcagFetchCredentials === 'function' ? globalThis.wcagFetchCredentials() : 'same-origin';
+      const res = await fetch(url, { credentials: creds });
       const data = await res.json().catch(() => ({}));
       if (data.authEnabled && !data.authenticated) openModal();
       else closeModal();
@@ -100,11 +102,13 @@
       errEl.textContent = '';
     }
     try {
-      const res = await fetch('/api/auth/login', {
+      const url = typeof globalThis.wcagApiUrl === 'function' ? globalThis.wcagApiUrl('/api/auth/login') : '/api/auth/login';
+      const creds = typeof globalThis.wcagFetchCredentials === 'function' ? globalThis.wcagFetchCredentials() : 'same-origin';
+      const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password }),
-        credentials: 'same-origin',
+        credentials: creds,
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {

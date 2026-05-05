@@ -95,10 +95,14 @@ import AppHeader from '../components/AppHeader.astro';
   async function loadAudits() {
     if (!rowsEl) return;
     if (msgEl) msgEl.textContent = '';
+    const abs = typeof globalThis.wcagApiUrl === 'function' ? (p) => globalThis.wcagApiUrl(p) : (p) => p;
     rowsEl.innerHTML =
       '<div class="list-row audits-row" style="grid-template-columns: 1fr;"><span class="muted" style="text-align: center; padding: 8px 0;">Loading…</span></div>';
     try {
-      const res = await fetch('/api/audits', { credentials: 'same-origin' });
+      const res = await fetch(
+        typeof globalThis.wcagApiUrl === 'function' ? globalThis.wcagApiUrl('/api/audits') : '/api/audits',
+        { credentials: typeof globalThis.wcagFetchCredentials === 'function' ? globalThis.wcagFetchCredentials() : 'same-origin' }
+      );
       const data = await res.json().catch(() => ({}));
       if (res.status === 401) {
         document.dispatchEvent(new CustomEvent('wcag:login-required'));
@@ -132,9 +136,9 @@ import AppHeader from '../components/AppHeader.astro';
           const domain = a.domain || a.id;
           const latestRunId = a.latestRunId || '';
           const reportHref = latestRunId
-            ? `/report/${encodeURIComponent(domain)}/${encodeURIComponent(latestRunId)}/`
-            : `/report/${encodeURIComponent(domain)}/`;
-          const historyHref = `/report/${encodeURIComponent(domain)}/history`;
+            ? abs(`/report/${encodeURIComponent(domain)}/${encodeURIComponent(latestRunId)}/`)
+            : abs(`/report/${encodeURIComponent(domain)}/`);
+          const historyHref = abs(`/report/${encodeURIComponent(domain)}/history`);
           const totalRuns = Number(a.totalRuns || 1);
           return `<div class="list-row audits-row">
             <a class="link" style="font-weight: 500; text-decoration: none; color: var(--fg-1);" href="${historyHref}">

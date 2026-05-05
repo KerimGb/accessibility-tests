@@ -63,6 +63,7 @@ function parseBooleanEnv(name, defaultValue = false) {
 let AUTH_ENABLED = parseBooleanEnv('AUTH_ENABLED', true);
 let APP_USERNAME = 'root';
 let APP_PASSWORD = 'root';
+let AUTH_COOKIE_SAMESITE = 'Lax';
 const AUTH_COOKIE_NAME = 'wcag_access';
 const AUTH_COOKIE_SECURE = parseBooleanEnv('AUTH_COOKIE_SECURE', false);
 
@@ -376,14 +377,39 @@ export function createAccessibilityApp(repoRoot) {
   AUTH_ENABLED = parseBooleanEnv('AUTH_ENABLED', true);
   APP_USERNAME = String(process.env.APP_USERNAME ?? 'root').trim() || 'root';
   APP_PASSWORD = String(process.env.APP_PASSWORD ?? 'root').trim() || 'root';
+  const sameSiteRaw = String(process.env.AUTH_COOKIE_SAMESITE || 'Lax').trim();
+  AUTH_COOKIE_SAMESITE = ['Lax', 'Strict', 'None'].includes(sameSiteRaw) ? sameSiteRaw : 'Lax';
   const loadingPath = '/loading';
 
   const app = express();
 
-// CORS: allow requests from Combell or any frontend (set ALLOWED_ORIGIN to restrict)
-const allowedOrigin = process.env.ALLOWED_ORIGIN || '*';
+// CORS: set ALLOWED_ORIGIN to your UI origin (no trailing slash) when using PUBLIC_APP_BASE / split hosting.
+// RELAX_CORS_LOCALHOST=true + browser hitting PUBLIC_DEV_API_URL lets `astro dev` call :3456 without the Vite proxy (fixes many multipart 403s).
+const allowedOrigin = String(process.env.ALLOWED_ORIGIN || '*').trim() || '*';
+const relaxCorsLocalhost = parseBooleanEnv('RELAX_CORS_LOCALHOST', false);
+function isLocalhostBrowserOrigin(o) {
+  try {
+    const u = new URL(o);
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return false;
+    const h = u.hostname;
+    return h === 'localhost' || h === '127.0.0.1' || h === '[::1]' || h === '::1';
+  } catch {
+    return false;
+  }
+}
 app.use((req, res, next) => {
-  res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
+  const origin = typeof req.headers.origin === 'string' ? req.headers.origin.trim() : '';
+  // Local dev: reflect browser Origin so credentialed calls to :3456 work even when ALLOWED_ORIGIN is set for prod.
+  if (relaxCorsLocalhost && origin && isLocalhostBrowserOrigin(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Vary', 'Origin');
+  } else if (allowedOrigin !== '*') {
+    res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+  } else {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+  }
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-App-Username, X-App-Password');
   if (req.method === 'OPTIONS') return res.sendStatus(200);
@@ -392,6 +418,24 @@ app.use((req, res, next) => {
 
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
+
+/** Safe post-login redirect: relative path, or absolute URL matching ALLOWED_ORIGIN. */
+function safeNextAfterLogin(raw) {
+  if (typeof raw !== 'string') return '/';
+  const t = raw.trim();
+  if (!t) return '/';
+  if (t.startsWith('/') && !t.startsWith('//')) return t.slice(0, 2048);
+  const uiOrigin = String(process.env.ALLOWED_ORIGIN || '').trim();
+  if (!uiOrigin || uiOrigin === '*') return '/';
+  try {
+    const allowed = new URL(uiOrigin).origin;
+    const u = new URL(t);
+    if (u.origin === allowed) return t.slice(0, 2048);
+  } catch {
+    /* ignore */
+  }
+  return '/';
+}
 
 function parseCookies(req) {
   const raw = req.headers.cookie || '';
@@ -444,12 +488,18 @@ function credentialsValid(user, pass) {
 }
 
 function setAuthCookie(res) {
-  const securePart = AUTH_COOKIE_SECURE ? '; Secure' : '';
-  res.setHeader('Set-Cookie', `${AUTH_COOKIE_NAME}=1; Path=/; HttpOnly; SameSite=Lax; Max-Age=43200${securePart}`);
+  const useSecure = AUTH_COOKIE_SAMESITE === 'None' ? true : AUTH_COOKIE_SECURE;
+  const securePart = useSecure ? '; Secure' : '';
+  res.setHeader(
+    'Set-Cookie',
+    `${AUTH_COOKIE_NAME}=1; Path=/; HttpOnly; SameSite=${AUTH_COOKIE_SAMESITE}; Max-Age=43200${securePart}`
+  );
 }
 
 function loginPageHtml(nextPath = '', errorMessage = '') {
-  const safeNext = String(nextPath || '/').replace(/"/g, '&quot;');
+  const safeNext = String(nextPath || '/')
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;');
   const esc =
     typeof errorMessage === 'string'
       ? errorMessage
@@ -620,13 +670,13 @@ app.get('/design-system.css', (_req, res) => {
 
 app.get('/auth/login', (req, res) => {
   if (!AUTH_ENABLED) return res.redirect('/');
-  const nextPath = typeof req.query.next === 'string' && req.query.next.startsWith('/') ? req.query.next : '/';
+  const nextPath = safeNextAfterLogin(typeof req.query.next === 'string' ? req.query.next : '/');
   return res.status(200).send(loginPageHtml(nextPath));
 });
 
 app.post('/auth/login', (req, res) => {
   if (!AUTH_ENABLED) return res.redirect('/');
-  const nextPath = typeof req.body?.next === 'string' && req.body.next.startsWith('/') ? req.body.next : '/';
+  const nextPath = safeNextAfterLogin(typeof req.body?.next === 'string' ? req.body.next : '/');
   const username = String(req.body?.username || '').trim();
   const password = String(req.body?.password || '');
   if (!credentialsValid(username, password)) {
@@ -758,7 +808,7 @@ app.use((req, res, next) => {
   if (req.path.startsWith('/api/')) {
     return res.status(401).json({ error: 'Authentication required' });
   }
-  const nextPath = req.originalUrl || '/';
+  const nextPath = safeNextAfterLogin(req.originalUrl || '/');
   return res.redirect(`/auth/login?next=${encodeURIComponent(nextPath)}`);
 });
 
@@ -1613,6 +1663,12 @@ app.get('/report/:domain/:runId/sales', (req, res, next) => next());
 app.get('/report/:domain/:runId/sales/', (req, res, next) => next());
 app.get('/report/:domain/:runId/statement', (req, res, next) => next());
 app.get('/report/:domain/:runId/statement/', (req, res, next) => next());
+
+  /**
+   * Home: when this app is mounted under a parent (Astro shell), continue to the parent.
+   * When using `node server.js` alone, `server.js` registers a second handler to redirect to /audits.
+   */
+  app.get('/', (req, res, next) => next());
 
   return app;
 }

@@ -150,6 +150,10 @@ import AppHeader from '../components/AppHeader.astro';
   const summary = document.getElementById('run-summary');
   const errEl = document.getElementById('form-err');
 
+  function wcUrl(path) {
+    return typeof globalThis.wcagApiUrl === 'function' ? globalThis.wcagApiUrl(path) : path;
+  }
+
   function countUrls() {
     const t = urlsEl?.value || '';
     const n = t.split(/[\n,]+/).map((s) => s.trim()).filter((s) => s.startsWith('http')).length;
@@ -171,8 +175,23 @@ import AppHeader from '../components/AppHeader.astro';
     errEl.style.display = 'none';
     const fd = new FormData(form);
     try {
-      const res = await fetch('/api/run', { method: 'POST', body: fd, credentials: 'same-origin' });
-      const data = await res.json().catch(() => ({}));
+      const runUrl = typeof globalThis.wcagApiUrl === 'function' ? globalThis.wcagApiUrl('/api/run') : '/api/run';
+      const creds = typeof globalThis.wcagFetchCredentials === 'function' ? globalThis.wcagFetchCredentials() : 'same-origin';
+      const res = await fetch(runUrl, { method: 'POST', body: fd, credentials: creds });
+      const ct = (res.headers.get('content-type') || '').toLowerCase();
+      let data = {};
+      if (ct.includes('application/json')) {
+        data = await res.json().catch(() => ({}));
+      } else {
+        const raw = await res.text().catch(() => '');
+        if (raw && raw.trim().startsWith('{')) {
+          try {
+            data = JSON.parse(raw);
+          } catch {
+            /* ignore */
+          }
+        }
+      }
       if (res.status === 401) {
         document.dispatchEvent(new CustomEvent('wcag:login-required'));
         errEl.textContent = data.error || 'Sign in to run an audit.';
@@ -180,16 +199,22 @@ import AppHeader from '../components/AppHeader.astro';
         return;
       }
       if (!res.ok) {
-        errEl.textContent = data.error || res.statusText || 'Request failed';
+        if (res.status === 403) {
+          errEl.textContent =
+            data.error ||
+            'The server refused this request (403). If the response body mentions cross-site POST, you may be hitting Astro’s standalone listener: ensure `cd web && npm start` (run-server.mjs sets ASTRO_NODE_AUTOSTART), or open http://127.0.0.1:PORT instead of localhost. Otherwise: run the API on 3456, use the full stack build, and set PUBLIC_DEV_API_URL + RELAX_CORS_LOCALHOST for astro dev, or fix PUBLIC_APP_BASE.';
+        } else {
+          errEl.textContent = data.error || res.statusText || 'Request failed';
+        }
         errEl.style.display = 'block';
         return;
       }
       const domain = data.domain || data.id || data.reportId;
       const runId = data.runId;
       if (domain && runId) {
-        window.location.href = `/loading?domain=${encodeURIComponent(domain)}&runId=${encodeURIComponent(runId)}`;
+        window.location.href = wcUrl(`/loading?domain=${encodeURIComponent(domain)}&runId=${encodeURIComponent(runId)}`);
       } else if (domain) {
-        window.location.href = `/report/${encodeURIComponent(domain)}/`;
+        window.location.href = wcUrl(`/report/${encodeURIComponent(domain)}/`);
       }
     } catch {
       errEl.textContent = 'Network error — is the API running? For dev, start legacy server on port 3456.';

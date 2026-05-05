@@ -5,6 +5,19 @@
    */
   import { onMount, onDestroy } from 'svelte';
 
+  function wcUrl(path) {
+    if (typeof globalThis !== 'undefined' && typeof globalThis.wcagApiUrl === 'function') {
+      return globalThis.wcagApiUrl(path);
+    }
+    return path;
+  }
+  function wcCreds() {
+    if (typeof globalThis !== 'undefined' && typeof globalThis.wcagFetchCredentials === 'function') {
+      return globalThis.wcagFetchCredentials();
+    }
+    return 'same-origin';
+  }
+
   /** @type {{ domain: string, runId: string, sampleUrls?: string[] }} */
   let { domain, runId, sampleUrls = [] } = $props();
 
@@ -43,9 +56,9 @@
 
   async function poll() {
     try {
-      const res = await fetch(`/api/status/${encodeURIComponent(domain)}/${encodeURIComponent(runId)}`, {
+      const res = await fetch(wcUrl(`/api/status/${encodeURIComponent(domain)}/${encodeURIComponent(runId)}`), {
         cache: 'no-store',
-        credentials: 'same-origin',
+        credentials: wcCreds(),
       });
       if (!res.ok) {
         if (res.status === 404) {
@@ -53,8 +66,8 @@
         }
         if (res.status === 401) {
           errorMsg = 'Session expired — sign in again.';
-          const next = `/loading?domain=${encodeURIComponent(domain)}&runId=${encodeURIComponent(runId)}`;
-          window.location.href = `/auth/login?next=${encodeURIComponent(next)}`;
+          const next = typeof window !== 'undefined' ? window.location.href : '';
+          window.location.href = wcUrl('/auth/login') + '?next=' + encodeURIComponent(next || '/loading');
         }
         return;
       }
@@ -69,7 +82,7 @@
         clearInterval(pollTimer);
         clearInterval(progressTimer);
         setTimeout(() => {
-          window.location.replace(`/report/${encodeURIComponent(domain)}/${encodeURIComponent(runId)}/`);
+          window.location.replace(wcUrl(`/report/${encodeURIComponent(domain)}/${encodeURIComponent(runId)}/`));
         }, 600);
       } else if (data.status === 'error') {
         clearInterval(pollTimer);

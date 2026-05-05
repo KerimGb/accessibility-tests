@@ -6,15 +6,17 @@
  */
 import { dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { loadLocalEnv } from './server/load-env.mjs';
+import { loadAllAppEnv } from './server/load-env.mjs';
 import { initDb, dbPool } from './server/db.js';
 import { createAccessibilityApp } from './server/create-app.mjs';
 
 const repoRoot = dirname(fileURLToPath(import.meta.url));
-loadLocalEnv(repoRoot);
+loadAllAppEnv(repoRoot);
 const PORT = process.env.PORT || 3456;
 
 const app = createAccessibilityApp(repoRoot);
+/** API-only process has no Astro shell; after auth, `/` would otherwise 404. */
+app.get('/', (req, res) => res.redirect(302, '/audits'));
 
 initDb()
   .then(() => {
@@ -24,7 +26,8 @@ initDb()
       console.log('Postgres persistence disabled (DATABASE_URL not set).');
     }
     app.listen(PORT, () => {
-      console.log(`Accessibility test server running at http://localhost:${PORT}`);
+      console.log(`Accessibility API at http://localhost:${PORT} (signed-in home redirects to /audits).`);
+      console.log(`Full UI with Astro: cd web && npm run build && npm start`);
     });
   })
   .catch((err) => {

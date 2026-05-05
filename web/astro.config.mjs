@@ -16,11 +16,40 @@ export default defineConfig({
   vite: {
     server: {
       proxy: {
-        '/api': { target: 'http://127.0.0.1:3456', changeOrigin: true },
-        '/report': { target: 'http://127.0.0.1:3456', changeOrigin: true },
-        '/auth': { target: 'http://127.0.0.1:3456', changeOrigin: true },
-        '/robots.txt': { target: 'http://127.0.0.1:3456', changeOrigin: true },
-        '/design-system.css': { target: 'http://127.0.0.1:3456', changeOrigin: true },
+        /**
+         * Proxy to the API on 3456. changeOrigin + cookie rewrite avoids some 403s from strict backends
+         * and keeps session cookies usable when the dev UI runs on another port.
+         */
+        '/api': {
+          target: 'http://127.0.0.1:3456',
+          changeOrigin: true,
+          secure: false,
+          cookieDomainRewrite: '',
+        },
+        '/report': {
+          target: 'http://127.0.0.1:3456',
+          changeOrigin: true,
+          secure: false,
+          cookieDomainRewrite: '',
+        },
+        '/auth': {
+          target: 'http://127.0.0.1:3456',
+          changeOrigin: true,
+          secure: false,
+          cookieDomainRewrite: '',
+        },
+        '/robots.txt': {
+          target: 'http://127.0.0.1:3456',
+          changeOrigin: true,
+          secure: false,
+          cookieDomainRewrite: '',
+        },
+        '/design-system.css': {
+          target: 'http://127.0.0.1:3456',
+          changeOrigin: true,
+          secure: false,
+          cookieDomainRewrite: '',
+        },
       },
     },
   },

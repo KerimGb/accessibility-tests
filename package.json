@@ -8,6 +8,7 @@
     "test:report": "node run-tests.js --report",
     "report": "node generate-report.js",
     "start": "node server.js",
+    "build": "npm run build --prefix web",
     "dev:web": "npm run dev --prefix web",
     "build:web": "npm run build --prefix web",
     "start:web": "npm run build --prefix web && npm run start --prefix web"

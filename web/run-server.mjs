@@ -6,14 +6,22 @@ import './set-reports-env.mjs';
 import express from 'express';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
-import { loadLocalEnv } from '../server/load-env.mjs';
+import { loadAllAppEnv } from '../server/load-env.mjs';
 import { initDb, dbPool } from '../server/db.js';
 import { createAccessibilityApp } from '../server/create-app.mjs';
 
 const webRoot = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(webRoot, '..');
-loadLocalEnv(repoRoot);
+loadAllAppEnv(repoRoot);
 const PORT = Number(process.env.PORT) || 3456;
+
+/**
+ * Importing dist/server/entry.mjs runs @astrojs/node `start()` in standalone mode,
+ * which binds another HTTP server to localhost:PORT (see process.env.PORT above).
+ * Our Express app already listens on PORT for *:PORT — IPv4 clients hit Express, but
+ * many browsers resolve "localhost" to ::1 and hit Astro-only, yielding 403 on POST /api/*.
+ */
+process.env.ASTRO_NODE_AUTOSTART ??= 'disabled';
 
 const { handler } = await import('./dist/server/entry.mjs');
 
