@@ -10,33 +10,13 @@ $apiUrl = rtrim(NODE_APP_URL, '/');
   <title>Accessibility Audit · Us</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Public+Sans:ital,wght@0,300..900;1,400..700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/design-system.css">
   <style>
-    :root {
-      --bg: #f8f7f4;
-      --surface: #ffffff;
-      --text: #1a1a1a;
-      --text-muted: #5c5c5c;
-      --accent: #2d9d78;
-      --accent-hover: #248f6a;
-      --accent-soft: #e8f5f0;
-      --border: #e8e6e1;
-      --error: #c62828;
-      --error-soft: #ffebee;
-    }
-    * { box-sizing: border-box; }
-    body {
-      font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
-      margin: 0;
-      padding: 0;
-      background: var(--bg);
-      color: var(--text);
-      min-height: 100vh;
-      line-height: 1.5;
-    }
+    /* Layout-only; colors and fonts from /design-system.css */
     .page { max-width: 560px; margin: 0 auto; padding: 48px 24px 64px; }
     .brand { margin-bottom: 40px; }
-    .brand-name { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.02em; color: var(--text); }
+    .brand-name { font-size: 1.5rem; font-family: "Bricolage Grotesque", ui-serif, Georgia, serif; font-weight: 700; letter-spacing: -0.02em; color: var(--text); }
     .brand-tagline { font-size: 0.9rem; color: var(--text-muted); margin-top: 4px; }
     .card {
       background: var(--surface);
@@ -45,7 +25,7 @@ $apiUrl = rtrim(NODE_APP_URL, '/');
       box-shadow: 0 2px 24px rgba(0,0,0,.06);
       border: 1px solid var(--border);
     }
-    .card-title { font-size: 1.35rem; font-weight: 700; letter-spacing: -0.02em; margin: 0 0 8px; }
+    .card-title { font-size: 1.35rem; font-family: "Bricolage Grotesque", ui-serif, Georgia, serif; font-weight: 700; letter-spacing: -0.02em; margin: 0 0 8px; }
     .card-desc { font-size: 0.95rem; color: var(--text-muted); margin: 0 0 28px; }
     label { display: block; font-weight: 600; font-size: 0.9rem; margin-bottom: 8px; color: var(--text); }
     textarea {
@@ -55,10 +35,10 @@ $apiUrl = rtrim(NODE_APP_URL, '/');
       background: var(--surface); color: var(--text);
       transition: border-color .2s, box-shadow .2s;
     }
-    textarea::placeholder { color: #9e9e9e; }
+    textarea::placeholder { color: var(--color-placeholder); }
     textarea:focus {
-      outline: none; border-color: var(--accent);
-      box-shadow: 0 0 0 3px var(--accent-soft);
+      outline: none; border-color: var(--link);
+      box-shadow: 0 0 0 3px var(--color-info-soft);
     }
     .hint { font-size: 0.85rem; color: var(--text-muted); margin-top: 8px; }
     .divider { display: flex; align-items: center; margin: 28px 0; }
@@ -68,30 +48,33 @@ $apiUrl = rtrim(NODE_APP_URL, '/');
       border: 2px dashed var(--border); border-radius: 12px; padding: 28px; text-align: center;
       transition: border-color .2s, background .2s;
     }
-    .file-wrap:hover { border-color: var(--accent); background: var(--accent-soft); }
+    .file-wrap:hover { border-color: var(--link); background: var(--color-info-soft); }
     input[type="file"] { display: none; }
     .file-btn {
       display: inline-flex; align-items: center; gap: 8px;
-      padding: 12px 20px; background: var(--text); color: var(--surface);
-      border-radius: 10px; cursor: pointer; font-weight: 600; font-size: 0.9rem; font-family: inherit;
+      padding: 12px 20px; background: var(--accent); color: var(--color-primary-label);
+      border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.9rem;
+      font-family: "Bricolage Grotesque", ui-serif, Georgia, serif;
       transition: background .2s, transform .1s;
     }
-    .file-btn:hover { background: #333; }
+    .file-btn:hover { background: var(--accent-hover); }
     .file-btn:active { transform: scale(0.98); }
     .file-btn::after { content: '→'; }
     .file-name { margin-top: 10px; font-size: 0.85rem; color: var(--text-muted); }
     .submit-wrap { margin-top: 28px; }
     .submit {
       display: inline-flex; align-items: center; gap: 10px;
-      padding: 14px 28px; background: var(--accent); color: #fff; border: none;
-      border-radius: 10px; font-size: 1rem; font-weight: 600; font-family: inherit;
+      padding: 14px 28px; background: var(--accent); color: var(--color-primary-label); border: none;
+      border-radius: 8px; font-size: 1rem; font-weight: 600;
+      font-family: "Bricolage Grotesque", ui-serif, Georgia, serif;
       cursor: pointer; transition: background .2s, transform .1s;
     }
     .submit:hover { background: var(--accent-hover); }
     .submit:active { transform: scale(0.98); }
-    .submit:disabled { background: #9e9e9e; cursor: not-allowed; transform: none; }
+    .submit:disabled { background: var(--color-button-disabled-bg); color: var(--color-button-disabled-label); cursor: not-allowed; transform: none; }
     .submit::after { content: '→'; }
     .error { margin-top: 16px; padding: 14px 16px; background: var(--error-soft); color: var(--error); border-radius: 10px; font-size: 0.9rem; }
+    body { background: #fcfcf8; }
   </style>
 </head>
 <body>
@@ -155,9 +138,11 @@ $apiUrl = rtrim(NODE_APP_URL, '/');
         if (!res.ok) {
           throw new Error(data.error || 'Request failed');
         }
-        const q = new URLSearchParams({ id: data.id });
+        const q = new URLSearchParams();
+        if (data.domain) q.set('domain', data.domain);
+        if (data.runId) q.set('runId', data.runId);
         if (data.urls) q.set('urls', data.urls);
-        window.location.href = NODE_APP_URL + '/loading.html?' + q.toString();
+        window.location.href = NODE_APP_URL + '/loading?' + q.toString();
       } catch (err) {
         errorEl.textContent = err.message + ' (Check that the API server is running and config.php has the correct URL.)';
         errorEl.style.display = 'block';

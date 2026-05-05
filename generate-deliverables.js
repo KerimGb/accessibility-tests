@@ -350,24 +350,13 @@ export function generateDeveloperAdvice(data, outputDir) {
         <button class="btn btn-secondary btn-sm" type="button" data-close>✕</button>
       </div>
       <div class="modal-body">
-        <div style="font-size: 13px; font-weight: 500; margin-bottom: 10px;">Pick a project</div>
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:10px;">
+          <div style="font-size: 13px; font-weight: 500;">Pick a project</div>
+          <button class="btn btn-secondary btn-sm" id="jira-connect" type="button">Connect Jira</button>
+        </div>
+        <div class="muted" id="jira-connection" style="font-size:12px; margin-bottom:10px;">Checking Jira connection…</div>
         <div class="project-grid" id="project-grid">
-          <button class="project-btn" data-project="NS" type="button">
-            <span class="project-key" style="background:#6257E8;">NS</span>
-            <span><span style="display:block; font-weight:500;">Northstar Web</span><span style="display:block; font-size:11px; color: var(--fg-3);">Frontend platform</span></span>
-          </button>
-          <button class="project-btn" data-project="PD" type="button">
-            <span class="project-key" style="background:#41BD73;">PD</span>
-            <span><span style="display:block; font-weight:500;">Product Catalog</span><span style="display:block; font-size:11px; color: var(--fg-3);">Catalog</span></span>
-          </button>
-          <button class="project-btn" data-project="CK" type="button">
-            <span class="project-key" style="background:#FFB985;">CK</span>
-            <span><span style="display:block; font-weight:500;">Checkout</span><span style="display:block; font-size:11px; color: var(--fg-3);">Commerce</span></span>
-          </button>
-          <button class="project-btn" data-project="DS" type="button">
-            <span class="project-key" style="background:#F3AAFF;">DS</span>
-            <span><span style="display:block; font-weight:500;">Design System</span><span style="display:block; font-size:11px; color: var(--fg-3);">Design</span></span>
-          </button>
+          <div class="muted" style="font-size:12px;">Connect Jira to load projects.</div>
         </div>
         <div style="font-size: 13px; font-weight: 500; margin: 16px 0 10px;">Tickets to create (${tickets.length})</div>
         <div>
@@ -391,17 +380,76 @@ export function generateDeveloperAdvice(data, outputDir) {
       var confirmBtn = document.getElementById('jira-confirm');
       var summary = document.getElementById('jira-summary');
       var projectGrid = document.getElementById('project-grid');
+      var connectBtn = document.getElementById('jira-connect');
+      var connectionLabel = document.getElementById('jira-connection');
+      var tickets = ${JSON.stringify(tickets).replace(/</g, '\\u003c')};
+      var domain = ${JSON.stringify(domain || '').replace(/</g, '\\u003c')};
+      var runId = ${JSON.stringify(runId || '').replace(/</g, '\\u003c')};
       var selected = null;
 
       function openModal() { modal.classList.add('open'); }
       function closeModal() { modal.classList.remove('open'); }
+      function renderProjects(projects) {
+        if (!Array.isArray(projects) || projects.length === 0) {
+          projectGrid.innerHTML = '<div class="muted" style="font-size:12px;">No projects found for this Jira connection.</div>';
+          return;
+        }
+        projectGrid.innerHTML = projects.map(function (p) {
+          var key = String(p.key || '');
+          var name = String(p.name || key);
+          return (
+            '<button class="project-btn" data-project="' + key + '" type="button">' +
+              '<span class="project-key">' + key + '</span>' +
+              '<span><span style="display:block; font-weight:500;">' + name + '</span>' +
+              '<span style="display:block; font-size:11px; color: var(--fg-3);">Jira project</span></span>' +
+            '</button>'
+          );
+        }).join('');
+      }
+      async function refreshJiraState() {
+        if (!domain) {
+          connectionLabel.textContent = 'Unknown run domain — cannot connect Jira.';
+          return;
+        }
+        connectionLabel.textContent = 'Checking Jira connection…';
+        selected = null;
+        confirmBtn.disabled = true;
+        summary.textContent = 'Pick a project to continue.';
+        try {
+          var statusRes = await fetch('/api/jira/oauth/status?domain=' + encodeURIComponent(domain), { credentials: 'same-origin' });
+          var statusData = await statusRes.json().catch(function () { return {}; });
+          if (!statusRes.ok || !statusData.connected) {
+            connectionLabel.textContent = (statusData && statusData.error) || 'Not connected. Click "Connect Jira".';
+            projectGrid.innerHTML = '<div class="muted" style="font-size:12px;">Connect Jira to load projects.</div>';
+            return;
+          }
+          connectionLabel.textContent = 'Connected to ' + (statusData.siteName || statusData.siteUrl || 'your Jira site') + '.';
+          var projectsRes = await fetch('/api/jira/projects?domain=' + encodeURIComponent(domain), { credentials: 'same-origin' });
+          var projectsData = await projectsRes.json().catch(function () { return {}; });
+          if (!projectsRes.ok) {
+            projectGrid.innerHTML = '<div class="muted" style="font-size:12px;">' + (projectsData.error || 'Failed to load projects.') + '</div>';
+            return;
+          }
+          renderProjects(projectsData.projects || []);
+        } catch (err) {
+          connectionLabel.textContent = 'Failed to check Jira connection.';
+          projectGrid.innerHTML = '<div class="muted" style="font-size:12px;">Network error while loading Jira projects.</div>';
+        }
+      }
 
       openBtn?.addEventListener('click', openModal);
+      openBtn?.addEventListener('click', refreshJiraState);
       modal.addEventListener('click', function (e) {
         if (e.target === modal) closeModal();
       });
       modal.querySelectorAll('[data-close]').forEach(function (b) {
         b.addEventListener('click', closeModal);
+      });
+      connectBtn?.addEventListener('click', function () {
+        if (!domain) return;
+        var href = '/auth/jira/connect?domain=' + encodeURIComponent(domain);
+        window.open(href, 'jira_oauth', 'width=720,height=780');
+        setTimeout(refreshJiraState, 1200);
       });
       projectGrid?.addEventListener('click', function (e) {
         var btn = e.target.closest('[data-project]');
@@ -412,9 +460,34 @@ export function generateDeveloperAdvice(data, outputDir) {
         confirmBtn.disabled = false;
         summary.textContent = 'Will create ${tickets.length} issues in ' + (btn.querySelector('span span')?.textContent || selected) + '.';
       });
-      confirmBtn?.addEventListener('click', function () {
-        summary.textContent = 'Sprint queued — open Jira to verify (demo mode).';
+      confirmBtn?.addEventListener('click', async function () {
+        if (!selected) return;
         confirmBtn.disabled = true;
+        var prev = confirmBtn.textContent;
+        confirmBtn.textContent = 'Creating…';
+        summary.textContent = 'Creating Jira tickets…';
+        try {
+          var res = await fetch('/api/jira/sprint', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify({ projectKey: selected, tickets: tickets, domain: domain, runId: runId }),
+          });
+          var data = await res.json().catch(function () { return {}; });
+          if (!res.ok) {
+            summary.textContent = data.error || ('Failed to create tickets (' + res.status + ').');
+            confirmBtn.disabled = false;
+            confirmBtn.textContent = prev;
+            return;
+          }
+          var count = Number(data.createdCount || 0);
+          summary.textContent = 'Created ' + count + ' Jira issue' + (count === 1 ? '' : 's') + '.';
+          confirmBtn.textContent = 'Created';
+        } catch (err) {
+          summary.textContent = 'Network error while creating Jira tickets.';
+          confirmBtn.disabled = false;
+          confirmBtn.textContent = prev;
+        }
       });
     })();
   </script>

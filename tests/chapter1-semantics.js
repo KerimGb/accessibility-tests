@@ -64,26 +64,83 @@ export async function runSemanticChecks(page) {
     const levels = headings.map((h) => parseInt(h.tagName.charAt(1)));
     const skips = levels.filter((lev, i) => i > 0 && lev - levels[i - 1] > 1);
     const h1Count = levels.filter((l) => l === 1).length;
-    return { total: headings.length, skips: skips.length, h1Count };
+    const main = document.querySelector('main, [role="main"]');
+    const firstInMain = main ? main.querySelector('h1, h2, h3, h4, h5, h6') : null;
+    const firstInMainIsH1 = !firstInMain || firstInMain.tagName === 'H1';
+    return {
+      total: headings.length,
+      skips: skips.length,
+      h1Count,
+      firstInMainIsH1,
+      hasHeadingInMain: !!firstInMain,
+    };
   });
   results.push({
     id: 'heading-structure',
-    rule: 'Main content SHOULD start with h1, headings SHOULD NOT skip levels',
+    rule: 'At least one h1 SHOULD exist; heading levels SHOULD NOT skip (e.g. h1 → h3)',
     status: headingStructure.skips === 0 && headingStructure.h1Count >= 1 ? 'pass' : 'warn',
     message: `Headings: ${headingStructure.total} total, ${headingStructure.h1Count} h1(s), ${headingStructure.skips} level skip(s)`,
     chapter: chapterId,
   });
+  if (headingStructure.hasHeadingInMain) {
+    results.push({
+      id: 'heading-main-h1',
+      rule: 'First heading inside <main> SHOULD be h1 when headings are used there',
+      status: headingStructure.firstInMainIsH1 ? 'pass' : 'warn',
+      message: headingStructure.firstInMainIsH1
+        ? 'First heading in main is h1'
+        : 'First heading in main is not h1',
+      chapter: chapterId,
+    });
+  }
 
-  // Links
+  // Links (accessible name: aria-labelledby, aria-label, content incl. img alt)
   const linkChecks = await page.evaluate(() => {
+    function accNameForLink(el) {
+      const labelledBy = el.getAttribute('aria-labelledby');
+      if (labelledBy) {
+        const parts = [];
+        labelledBy.split(/\s+/).forEach((id) => {
+          const ref = document.getElementById(id);
+          if (ref) {
+            const t =
+              (ref.textContent && ref.textContent.trim()) ||
+              ref.getAttribute('aria-label') ||
+              '';
+            if (t) parts.push(t);
+          }
+        });
+        if (parts.length) return parts.join(' ').replace(/\s+/g, ' ').trim();
+      }
+      const al = el.getAttribute('aria-label');
+      if (al && al.trim()) return al.trim();
+      const titleAttr = el.getAttribute('title');
+      if (titleAttr && titleAttr.trim()) return titleAttr.trim();
+      function walk(node) {
+        let s = '';
+        for (const ch of node.childNodes) {
+          if (ch.nodeType === 3) s += ch.textContent || '';
+          else if (ch.nodeType === 1) {
+            const tag = ch.nodeName;
+            if (tag === 'IMG') s += ch.getAttribute('alt') || '';
+            else if (tag === 'SVG' || ch.getAttribute('role') === 'img') {
+              s += ch.getAttribute('aria-label') || '';
+              const t0 = ch.querySelector && ch.querySelector('title');
+              if (t0 && t0.textContent) s += t0.textContent;
+            } else {
+              s += walk(ch);
+            }
+          }
+        }
+        return s;
+      }
+      return walk(el).replace(/\s+/g, ' ').trim();
+    }
     const links = document.querySelectorAll('a[href]');
     const emptyText = [];
     const genericText = [];
     links.forEach((link, i) => {
-      const text = (link.textContent || '').trim();
-      const ariaLabel = link.getAttribute('aria-label');
-      const title = link.getAttribute('title');
-      const accessibleName = text || ariaLabel || title || '';
+      const accessibleName = accNameForLink(link);
       if (!accessibleName) emptyText.push(i + 1);
       if (/^(click here|read more|link|here|learn more)$/i.test(accessibleName)) genericText.push(accessibleName);
     });

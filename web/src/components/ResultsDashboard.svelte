@@ -115,7 +115,7 @@
     { key: 'disability', label: 'By disability' },
     { key: 'pages', label: 'By page', count: pagesTable.length },
     { key: 'rules', label: 'Rules' },
-    { key: 'manual', label: 'Manual checks', count: manualChecked },
+    { key: 'manual', label: 'Manual checks', count: `${manualChecked}/${manualTotal}` },
   ]);
   const variants = [
     { key: 'detailed', label: 'Detailed' },

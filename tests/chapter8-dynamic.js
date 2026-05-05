@@ -35,5 +35,33 @@ export async function runDynamicChecks(page) {
     chapter: chapterId,
   });
 
+  const statusRoleCount = await page.evaluate(() => {
+    return document.querySelectorAll('[role="status"], [role="alert"]').length;
+  });
+  results.push({
+    id: 'dynamic-status-roles',
+    rule: 'Status and alert regions (role=status / role=alert) — verify messages for users',
+    status: 'info',
+    message:
+      statusRoleCount > 0
+        ? `Found ${statusRoleCount} element(s) with role="status" or role="alert" — confirm important updates are communicated`
+        : 'No role="status" or role="alert" regions found (not required on every page)',
+    chapter: chapterId,
+  });
+
+  const ariaBusyCount = await page.evaluate(() => {
+    return document.querySelectorAll('[aria-busy="true"]').length;
+  });
+  results.push({
+    id: 'dynamic-aria-busy',
+    rule: 'Loading state (aria-busy) — verify assistive tech users get appropriate feedback',
+    status: 'info',
+    message:
+      ariaBusyCount > 0
+        ? `Found ${ariaBusyCount} element(s) with aria-busy="true" — ensure content updates are announced when loading finishes`
+        : 'No aria-busy="true" while testing initial load (SPA loading states may appear after interaction)',
+    chapter: chapterId,
+  });
+
   return results;
 }

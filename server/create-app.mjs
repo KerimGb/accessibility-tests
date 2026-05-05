@@ -6,6 +6,7 @@
 import express from 'express';
 import multer from 'multer';
 import { spawn } from 'child_process';
+import { randomBytes } from 'crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { sendRunNotificationEmail, createSmtpTransport } from '../server-email.js';
@@ -21,6 +22,7 @@ import {
   isValidRunId,
   isValidDomain,
   runDir as runDirOf,
+  domainDir as domainDirOf,
   latestRunIdOnDisk,
 } from './run-ids.js';
 
@@ -86,6 +88,106 @@ function parseNotifyFields(body) {
 
 function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+function getJiraConfig() {
+  return {
+    // Atlassian OAuth (3LO)
+    clientId: String(process.env.ATLASSIAN_CLIENT_ID || '').trim(),
+    clientSecret: String(process.env.ATLASSIAN_CLIENT_SECRET || '').trim(),
+    redirectUri: String(process.env.ATLASSIAN_REDIRECT_URI || '').trim(),
+  };
+}
+
+function jiraOAuthFile(domain) {
+  return join(domainDirOf(domain), 'jira-oauth.json');
+}
+
+function readJiraOAuth(domain) {
+  if (!isValidDomain(domain)) return null;
+  const p = jiraOAuthFile(domain);
+  if (!existsSync(p)) return null;
+  try {
+    return JSON.parse(readFileSync(p, 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+function writeJiraOAuth(domain, data) {
+  if (!isValidDomain(domain)) return;
+  const dir = domainDirOf(domain);
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+  writeFileSync(jiraOAuthFile(domain), JSON.stringify(data, null, 2), 'utf8');
+}
+
+/** @type {Map<string, { domain: string, expiresAt: number }>} */
+const jiraOauthState = new Map();
+
+function newOauthState(domain) {
+  const state = randomBytes(24).toString('hex');
+  jiraOauthState.set(state, { domain, expiresAt: Date.now() + 10 * 60 * 1000 });
+  return state;
+}
+
+function consumeOauthState(state) {
+  const row = jiraOauthState.get(state);
+  jiraOauthState.delete(state);
+  if (!row) return null;
+  if (row.expiresAt < Date.now()) return null;
+  return row;
+}
+
+async function atlassianTokenExchange(payload) {
+  const cfg = getJiraConfig();
+  const res = await fetch('https://auth.atlassian.com/oauth/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify({
+      client_id: cfg.clientId,
+      client_secret: cfg.clientSecret,
+      ...payload,
+    }),
+  });
+  const out = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(out.error_description || out.error || `OAuth token exchange failed (${res.status})`);
+  }
+  return out;
+}
+
+async function atlassianAccessibleResources(accessToken) {
+  const res = await fetch('https://api.atlassian.com/oauth/token/accessible-resources', {
+    headers: { Authorization: `Bearer ${accessToken}`, Accept: 'application/json' },
+  });
+  const out = await res.json().catch(() => []);
+  if (!res.ok || !Array.isArray(out)) {
+    throw new Error(`Could not fetch accessible Jira resources (${res.status})`);
+  }
+  return out;
+}
+
+async function getValidJiraAccess(domain) {
+  const cfg = getJiraConfig();
+  const saved = readJiraOAuth(domain);
+  if (!saved?.refreshToken) return null;
+  const now = Date.now();
+  if (saved.accessToken && Number(saved.expiresAt || 0) > now + 60 * 1000) {
+    return saved;
+  }
+  const refreshed = await atlassianTokenExchange({
+    grant_type: 'refresh_token',
+    refresh_token: saved.refreshToken,
+  });
+  const next = {
+    ...saved,
+    accessToken: refreshed.access_token,
+    refreshToken: refreshed.refresh_token || saved.refreshToken,
+    expiresAt: Date.now() + Number(refreshed.expires_in || 3600) * 1000,
+    updatedAt: new Date().toISOString(),
+  };
+  writeJiraOAuth(domain, next);
+  return next;
 }
 
 function runStatePatch(domain, runId, patch) {
@@ -395,10 +497,70 @@ app.post('/auth/login', (req, res) => {
   return res.redirect(nextPath);
 });
 
+app.get('/auth/jira/connect', (req, res) => {
+  const cfg = getJiraConfig();
+  const domain = String(req.query?.domain || '').trim().toLowerCase();
+  if (!cfg.clientId || !cfg.clientSecret || !cfg.redirectUri) {
+    return res.status(501).send('Atlassian OAuth not configured on server.');
+  }
+  if (!isValidDomain(domain)) {
+    return res.status(400).send('Invalid domain.');
+  }
+  const state = newOauthState(domain);
+  const u = new URL('https://auth.atlassian.com/authorize');
+  u.searchParams.set('audience', 'api.atlassian.com');
+  u.searchParams.set('client_id', cfg.clientId);
+  u.searchParams.set('scope', 'read:jira-work write:jira-work offline_access');
+  u.searchParams.set('redirect_uri', cfg.redirectUri);
+  u.searchParams.set('state', state);
+  u.searchParams.set('response_type', 'code');
+  u.searchParams.set('prompt', 'consent');
+  return res.redirect(u.toString());
+});
+
+app.get('/auth/jira/callback', async (req, res) => {
+  const cfg = getJiraConfig();
+  const code = String(req.query?.code || '');
+  const state = String(req.query?.state || '');
+  if (!cfg.clientId || !cfg.clientSecret || !cfg.redirectUri) {
+    return res.status(501).send('Atlassian OAuth not configured on server.');
+  }
+  const fromState = consumeOauthState(state);
+  if (!fromState) return res.status(400).send('Invalid or expired OAuth state.');
+  try {
+    const tok = await atlassianTokenExchange({
+      grant_type: 'authorization_code',
+      code,
+      redirect_uri: cfg.redirectUri,
+    });
+    const resources = await atlassianAccessibleResources(tok.access_token);
+    const jiraSite = resources.find((r) => Array.isArray(r.scopes) && r.scopes.some((s) => s.includes('jira')));
+    if (!jiraSite?.id) throw new Error('No Jira site granted for this account.');
+    writeJiraOAuth(fromState.domain, {
+      domain: fromState.domain,
+      cloudId: jiraSite.id,
+      siteUrl: jiraSite.url || '',
+      siteName: jiraSite.name || '',
+      accessToken: tok.access_token,
+      refreshToken: tok.refresh_token,
+      expiresAt: Date.now() + Number(tok.expires_in || 3600) * 1000,
+      connectedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+    return res
+      .status(200)
+      .type('html')
+      .send('<!doctype html><title>Jira connected</title><script>window.close();</script><p>Jira connected. You can close this window.</p>');
+  } catch (err) {
+    return res.status(500).send(`Jira OAuth failed: ${err?.message || err}`);
+  }
+});
+
 app.use((req, res, next) => {
   if (!AUTH_ENABLED) return next();
   if (req.path === '/robots.txt') return next();
   if (req.path === '/auth/login') return next();
+  if (req.path.startsWith('/auth/jira/')) return next();
   if (
     req.method === 'GET' &&
     (req.path === '/' ||
@@ -714,6 +876,135 @@ app.get('/api/health/db', async (req, res) => {
   } catch (err) {
     return res.status(503).json({ ok: false, db: 'down', error: err.message });
   }
+});
+
+app.get('/api/jira/oauth/status', async (req, res) => {
+  const domain = String(req.query?.domain || '').trim().toLowerCase();
+  if (!isValidDomain(domain)) return res.status(400).json({ error: 'Invalid domain' });
+  try {
+    const token = await getValidJiraAccess(domain);
+    if (!token) return res.json({ connected: false });
+    return res.json({
+      connected: true,
+      domain,
+      siteName: token.siteName || '',
+      siteUrl: token.siteUrl || '',
+      connectedAt: token.connectedAt || token.updatedAt || null,
+    });
+  } catch (err) {
+    return res.status(500).json({ error: `Jira token error: ${err?.message || err}` });
+  }
+});
+
+app.get('/api/jira/projects', async (req, res) => {
+  const domain = String(req.query?.domain || '').trim().toLowerCase();
+  if (!isValidDomain(domain)) return res.status(400).json({ error: 'Invalid domain' });
+  try {
+    const token = await getValidJiraAccess(domain);
+    if (!token?.accessToken || !token?.cloudId) {
+      return res.status(401).json({ error: 'Jira not connected for this domain' });
+    }
+    const r = await fetch(`https://api.atlassian.com/ex/jira/${token.cloudId}/rest/api/3/project/search?maxResults=100`, {
+      headers: { Authorization: `Bearer ${token.accessToken}`, Accept: 'application/json' },
+    });
+    const out = await r.json().catch(() => ({}));
+    if (!r.ok) {
+      return res.status(502).json({ error: out?.errorMessages?.join('; ') || `Failed to load Jira projects (${r.status})` });
+    }
+    const projects = Array.isArray(out?.values)
+      ? out.values.map((p) => ({ key: p.key, name: p.name })).filter((p) => p.key && p.name)
+      : [];
+    return res.json({ projects });
+  } catch (err) {
+    return res.status(502).json({ error: `Failed to load Jira projects: ${err?.message || err}` });
+  }
+});
+
+app.post('/api/jira/sprint', async (req, res) => {
+  const projectKey = String(req.body?.projectKey || '').trim().toUpperCase();
+  const tickets = Array.isArray(req.body?.tickets) ? req.body.tickets : [];
+  const domain = String(req.body?.domain || '').trim().toLowerCase();
+  const runId = String(req.body?.runId || '').trim();
+
+  if (!isValidDomain(domain)) {
+    return res.status(400).json({ error: 'Invalid domain.' });
+  }
+  if (!/^[A-Z][A-Z0-9_]{1,20}$/.test(projectKey)) {
+    return res.status(400).json({ error: 'Invalid Jira project key.' });
+  }
+  if (!tickets.length) {
+    return res.status(400).json({ error: 'No tickets provided.' });
+  }
+
+  let token;
+  try {
+    token = await getValidJiraAccess(domain);
+  } catch (err) {
+    return res.status(502).json({ error: `Jira token refresh failed: ${err?.message || err}` });
+  }
+  if (!token?.accessToken || !token?.cloudId) {
+    return res.status(401).json({ error: 'Jira is not connected for this domain. Connect first.' });
+  }
+
+  const created = [];
+  for (const t of tickets) {
+    const summary = String(t?.rule || t?.title || '').trim();
+    if (!summary) continue;
+    const points = Number.isFinite(Number(t?.points)) ? Number(t.points) : null;
+    const severity = String(t?.severity || '').toLowerCase();
+    const ticketId = String(t?.id || '').trim();
+    const labels = ['accessibility', 'auto-generated'];
+    if (domain) labels.push(`domain-${domain.replace(/[^a-z0-9-]/gi, '-').toLowerCase()}`);
+    const body = {
+      fields: {
+        project: { key: projectKey },
+        issuetype: { name: 'Task' },
+        summary: `[A11y] ${summary}`.slice(0, 255),
+        description: {
+          type: 'doc',
+          version: 1,
+          content: [
+            {
+              type: 'paragraph',
+              content: [{ type: 'text', text: `Generated from accessibility run ${domain}/${runId}.` }],
+            },
+            {
+              type: 'paragraph',
+              content: [
+                { type: 'text', text: `Source ticket: ${ticketId || 'n/a'} · Severity: ${severity || 'unknown'}` },
+              ],
+            },
+            ...(points != null
+              ? [{ type: 'paragraph', content: [{ type: 'text', text: `Estimated effort: ${points} points` }] }]
+              : []),
+          ],
+        },
+        labels,
+      },
+    };
+    try {
+      const jiraRes = await fetch(`https://api.atlassian.com/ex/jira/${token.cloudId}/rest/api/3/issue`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token.accessToken}`,
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      });
+      const out = await jiraRes.json().catch(() => ({}));
+      if (!jiraRes.ok) {
+        return res.status(502).json({
+          error: out?.errorMessages?.join('; ') || out?.errors?.summary || `Jira API error (${jiraRes.status})`,
+        });
+      }
+      created.push({ key: out.key, id: out.id });
+    } catch (err) {
+      return res.status(502).json({ error: `Failed to reach Jira: ${err?.message || err}` });
+    }
+  }
+
+  return res.json({ ok: true, createdCount: created.length, issues: created });
 });
 
 app.get('/api/audits', async (_req, res) => {

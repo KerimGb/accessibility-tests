@@ -21,7 +21,7 @@ export async function runResponsiveChecks(page, viewport = { width: 320, height:
 
   results.push({
     id: 'no-horizontal-scroll',
-    rule: 'Content MUST NOT require horizontal scrolling at 320px width',
+    rule: 'Content MUST NOT require horizontal scrolling at 320px width (simplified check; not a full WCAG 1.4.10 assessment)',
     status: !overflowChecks.hasHorizontalScroll ? 'pass' : 'fail',
     message: overflowChecks.hasHorizontalScroll
       ? `Horizontal overflow: content ${overflowChecks.docWidth}px vs viewport ${overflowChecks.viewWidth}px`
