@@ -1,17 +1,18 @@
 ---
 /**
- * Glass-style sign-in modal when AUTH_ENABLED and no session cookie.
- * Uses POST /api/auth/login; session is an HttpOnly cookie.
+ * Blocking glass sign-in overlay until POST /api/auth/login sets the HttpOnly wcag_access cookie.
+ * Coordinates with #wcag-main / #wcag-session-bar in Layout.astro.
  */
 ---
 
 <div
   id="wcag-login-modal"
   class="wcag-login-overlay"
-  hidden
-  aria-hidden="true"
+  aria-hidden="false"
+  role="presentation"
 >
   <div class="wcag-login-scene" aria-hidden="true">
+    <div class="wcag-login-bg-mosaic"></div>
     <div class="wcag-login-grad"></div>
     <div class="wcag-login-vignette"></div>
   </div>
@@ -20,31 +21,87 @@
     role="dialog"
     aria-modal="true"
     aria-labelledby="wcag-login-title"
+    id="wcag-login-dialog"
   >
-    <h2 id="wcag-login-title" class="wcag-login-title">Sign in</h2>
-    <p class="wcag-login-lead">Enter your username and password to use the app.</p>
-    <p id="wcag-login-err" class="wcag-login-err" role="alert" hidden></p>
-    <form id="wcag-login-form" class="wcag-login-form">
-      <label class="wcag-login-label" for="wcag-login-user">Username</label>
-      <input
-        class="wcag-login-input"
-        id="wcag-login-user"
-        name="username"
-        type="text"
-        autocomplete="username"
-        required
-      />
-      <label class="wcag-login-label" for="wcag-login-pass">Password</label>
-      <input
-        class="wcag-login-input"
-        id="wcag-login-pass"
-        name="password"
-        type="password"
-        autocomplete="current-password"
-        required
-      />
-      <button type="submit" class="wcag-login-submit">Continue</button>
-    </form>
+    <div class="wcag-login-flip">
+      <div class="wcag-login-flip-inner" id="wcag-login-flip-inner">
+        <div class="wcag-login-face wcag-login-face--front">
+          <h2 id="wcag-login-title" class="wcag-login-title">Sign in</h2>
+          <p class="wcag-login-lead">Enter your username and password to use the app.</p>
+          <p id="wcag-login-err" class="wcag-login-err" role="alert" hidden></p>
+          <form id="wcag-login-form" class="wcag-login-form">
+            <label class="wcag-login-label" for="wcag-login-user">Username</label>
+            <input
+              class="wcag-login-input"
+              id="wcag-login-user"
+              name="username"
+              type="text"
+              autocomplete="username"
+              required
+            />
+            <label class="wcag-login-label" for="wcag-login-pass">Password</label>
+            <input
+              class="wcag-login-input"
+              id="wcag-login-pass"
+              name="password"
+              type="password"
+              autocomplete="current-password"
+              required
+            />
+            <button type="submit" class="wcag-login-submit">Continue</button>
+          </form>
+          <p class="wcag-login-footer-request">
+            <button type="button" class="wcag-login-linklike" id="wcag-flip-to-request">
+              Interested? Request access
+            </button>
+          </p>
+        </div>
+        <div class="wcag-login-face wcag-login-face--back">
+          <h2 id="wcag-request-title" class="wcag-login-title">Request Access</h2>
+          <p class="wcag-access-lead">Tell us about yourself and we'll get back to you.</p>
+          <p id="wcag-access-err" class="wcag-login-err" role="alert" hidden></p>
+          <p id="wcag-access-ok" class="wcag-access-ok" role="status" hidden></p>
+          <form id="wcag-access-form" class="wcag-access-form">
+            <label class="wcag-login-label" for="wcag-access-name">Name</label>
+            <input
+              class="wcag-login-input"
+              id="wcag-access-name"
+              name="name"
+              type="text"
+              autocomplete="name"
+              required
+            />
+            <label class="wcag-login-label" for="wcag-access-company">Company</label>
+            <input
+              class="wcag-login-input"
+              id="wcag-access-company"
+              name="company"
+              type="text"
+              autocomplete="organization"
+            />
+            <label class="wcag-login-label" for="wcag-access-email">Email</label>
+            <input
+              class="wcag-login-input"
+              id="wcag-access-email"
+              name="email"
+              type="email"
+              autocomplete="email"
+              required
+            />
+            <label class="wcag-login-label" for="wcag-access-message">Message</label>
+            <textarea
+              class="wcag-login-textarea"
+              id="wcag-access-message"
+              name="message"
+              rows="4"
+              maxlength="4000"
+            ></textarea>
+            <button type="submit" class="wcag-login-submit wcag-access-submit">Request access</button>
+          </form>
+          <button type="button" class="wcag-login-back" id="wcag-flip-to-login">Back to sign in</button>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -53,18 +110,64 @@
     return document.getElementById(id);
   }
 
+  function getMain() {
+    return document.getElementById('wcag-main');
+  }
+
+  function getBar() {
+    return document.getElementById('wcag-session-bar');
+  }
+
+  function lockAppShell() {
+    const main = getMain();
+    const bar = getBar();
+    if (main) {
+      main.hidden = true;
+      main.setAttribute('inert', '');
+    }
+    if (bar) bar.hidden = true;
+  }
+
+  /** @param {boolean} showLogout - show session bar only when auth is on and user has a session */
+  function unlockAppShell(showLogout) {
+    const main = getMain();
+    const bar = getBar();
+    if (main) {
+      main.hidden = false;
+      main.removeAttribute('inert');
+    }
+    if (bar) bar.hidden = !showLogout;
+  }
+
   function openModal() {
     const overlay = qs('wcag-login-modal');
     if (!overlay) return;
     overlay.hidden = false;
+    overlay.removeAttribute('hidden');
     overlay.setAttribute('aria-hidden', 'false');
+    const flip = qs('wcag-login-flip-inner');
+    if (flip) flip.classList.remove('is-flipped');
+    const dialogEl = qs('wcag-login-dialog');
+    if (dialogEl) dialogEl.setAttribute('aria-labelledby', 'wcag-login-title');
+    qs('wcag-access-form')?.reset();
+    const accErr = qs('wcag-access-err');
+    const accOk = qs('wcag-access-ok');
+    if (accErr) {
+      accErr.hidden = true;
+      accErr.textContent = '';
+    }
+    if (accOk) {
+      accOk.hidden = true;
+      accOk.textContent = '';
+    }
     const err = qs('wcag-login-err');
-    if (err) {
+    if (err && !err.textContent) {
       err.hidden = true;
       err.textContent = '';
     }
     const userInput = qs('wcag-login-user');
     if (userInput && 'focus' in userInput) userInput.focus();
+    lockAppShell();
   }
 
   function closeModal() {
@@ -75,20 +178,61 @@
   }
 
   async function refreshAuthGate() {
+    const errEl = qs('wcag-login-err');
+    if (errEl && errEl.textContent) {
+      /* keep network error visible until user retries */
+    }
     try {
       const url = typeof globalThis.wcagApiUrl === 'function' ? globalThis.wcagApiUrl('/api/auth/status') : '/api/auth/status';
       const creds = typeof globalThis.wcagFetchCredentials === 'function' ? globalThis.wcagFetchCredentials() : 'same-origin';
       const res = await fetch(url, { credentials: creds });
       const data = await res.json().catch(() => ({}));
-      if (data.authEnabled && !data.authenticated) openModal();
-      else closeModal();
+
+      if (data.authEnabled === false) {
+        closeModal();
+        unlockAppShell(false);
+        return;
+      }
+
+      if (data.authenticated === true) {
+        closeModal();
+        unlockAppShell(true);
+        if (errEl) {
+          errEl.hidden = true;
+          errEl.textContent = '';
+        }
+        return;
+      }
+
+      if (errEl) {
+        errEl.hidden = true;
+        errEl.textContent = '';
+      }
+      openModal();
     } catch {
-      /* no server — leave hidden */
+      lockAppShell();
+      openModal();
+      if (errEl) {
+        errEl.textContent = 'Could not verify sign-in (is the API running?).';
+        errEl.hidden = false;
+      }
     }
   }
 
-  document.addEventListener('DOMContentLoaded', refreshAuthGate);
-  document.addEventListener('wcag:login-required', () => openModal());
+  document.addEventListener('DOMContentLoaded', () => {
+    lockAppShell();
+    refreshAuthGate();
+  });
+
+  document.addEventListener('wcag:login-required', () => {
+    lockAppShell();
+    const errEl = qs('wcag-login-err');
+    if (errEl) {
+      errEl.textContent = 'Your session expired. Sign in again.';
+      errEl.hidden = false;
+    }
+    openModal();
+  });
 
   const form = qs('wcag-login-form');
   form?.addEventListener('submit', async (e) => {
@@ -119,6 +263,7 @@
         return;
       }
       closeModal();
+      unlockAppShell(true);
       document.dispatchEvent(new CustomEvent('wcag:logged-in'));
     } catch {
       if (errEl) {
@@ -126,6 +271,90 @@
         errEl.hidden = false;
       }
     }
+  });
+
+  const flipInner = qs('wcag-login-flip-inner');
+  const dialogRoot = qs('wcag-login-dialog');
+  qs('wcag-flip-to-request')?.addEventListener('click', () => {
+    flipInner?.classList.add('is-flipped');
+    dialogRoot?.setAttribute('aria-labelledby', 'wcag-request-title');
+    qs('wcag-access-name')?.focus();
+  });
+  qs('wcag-flip-to-login')?.addEventListener('click', () => {
+    flipInner?.classList.remove('is-flipped');
+    dialogRoot?.setAttribute('aria-labelledby', 'wcag-login-title');
+    qs('wcag-flip-to-request')?.focus();
+  });
+
+  const accessForm = qs('wcag-access-form');
+  accessForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const errEl = qs('wcag-access-err');
+    const okEl = qs('wcag-access-ok');
+    if (errEl) {
+      errEl.hidden = true;
+      errEl.textContent = '';
+    }
+    if (okEl) {
+      okEl.hidden = true;
+      okEl.textContent = '';
+    }
+    if (!accessForm) return;
+    const fd = new FormData(accessForm);
+    const body = {
+      name: String(fd.get('name') ?? '').trim(),
+      company: String(fd.get('company') ?? '').trim(),
+      email: String(fd.get('email') ?? '').trim(),
+      message: String(fd.get('message') ?? '').trim(),
+    };
+    try {
+      const url =
+        typeof globalThis.wcagApiUrl === 'function' ? globalThis.wcagApiUrl('/api/access-request') : '/api/access-request';
+      const creds = typeof globalThis.wcagFetchCredentials === 'function' ? globalThis.wcagFetchCredentials() : 'same-origin';
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        credentials: creds,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (errEl) {
+          errEl.textContent = data.error || 'Something went wrong.';
+          errEl.hidden = false;
+        }
+        return;
+      }
+      if (okEl) {
+        okEl.textContent = data.emailed
+          ? 'Thanks — we received your request and emailed our team.'
+          : 'Thanks — we received your request.';
+        okEl.hidden = false;
+      }
+      accessForm.reset();
+    } catch {
+      if (errEl) {
+        errEl.textContent = 'Network error — try again in a moment.';
+        errEl.hidden = false;
+      }
+    }
+  });
+
+  const logoutBtn = qs('wcag-logout-btn');
+  logoutBtn?.addEventListener('click', async () => {
+    try {
+      const url = typeof globalThis.wcagApiUrl === 'function' ? globalThis.wcagApiUrl('/api/auth/logout') : '/api/auth/logout';
+      const creds = typeof globalThis.wcagFetchCredentials === 'function' ? globalThis.wcagFetchCredentials() : 'same-origin';
+      await fetch(url, { method: 'POST', credentials: creds }).catch(() => {});
+    } catch {
+      /* still lock UI */
+    }
+    const errEl = qs('wcag-login-err');
+    if (errEl) {
+      errEl.textContent = '';
+      errEl.hidden = true;
+    }
+    openModal();
   });
 </script>
 
@@ -145,33 +374,84 @@
   .wcag-login-scene {
     position: absolute;
     inset: 0;
+    z-index: 0;
     pointer-events: none;
     background: var(--us-cream, #f5f4e5);
   }
 
+  .wcag-login-bg-mosaic {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    background:
+      linear-gradient(155deg, rgba(255, 255, 255, 0.2) 0%, transparent 42%),
+      url('/assets/login-app-mosaic.svg') center / cover no-repeat;
+    background-color: #b9b5a9;
+    opacity: 1;
+    /* Multiply was flattening this art to a single warm grey; keep detail readable. */
+    filter: saturate(1.12) contrast(1.14);
+  }
+
   .wcag-login-grad {
     position: absolute;
-    inset: -20%;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    mix-blend-mode: normal;
+    opacity: 1;
     background:
-      radial-gradient(ellipse 50% 40% at 20% 30%, rgba(255, 185, 133, 0.45), transparent 55%),
-      radial-gradient(ellipse 45% 35% at 85% 20%, rgba(189, 180, 255, 0.5), transparent 50%),
-      radial-gradient(ellipse 40% 45% at 70% 85%, rgba(141, 255, 183, 0.35), transparent 55%),
-      radial-gradient(ellipse 35% 30% at 10% 80%, rgba(167, 240, 251, 0.4), transparent 50%);
+      radial-gradient(ellipse 50% 40% at 20% 30%, rgba(255, 185, 133, 0.14), transparent 55%),
+      radial-gradient(ellipse 45% 35% at 85% 20%, rgba(189, 180, 255, 0.16), transparent 50%),
+      radial-gradient(ellipse 40% 45% at 70% 85%, rgba(141, 255, 183, 0.12), transparent 55%),
+      radial-gradient(ellipse 35% 30% at 10% 80%, rgba(167, 240, 251, 0.13), transparent 50%);
   }
 
   .wcag-login-vignette {
     position: absolute;
     inset: 0;
-    background: rgba(25, 25, 27, 0.12);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
+    z-index: 2;
+    pointer-events: none;
+    /* Avoid backdrop-filter here: it blurs the page behind the overlay, not the mosaic,
+       and can make the whole scene look like a flat wash in some engines. */
+    background: linear-gradient(180deg, rgba(25, 25, 27, 0.04) 0%, rgba(25, 25, 27, 0.09) 100%);
   }
 
   .wcag-login-dialog {
     position: relative;
-    z-index: 1;
-    width: min(420px, 100%);
+    z-index: 3;
+    width: min(440px, 100%);
+  }
+
+  .wcag-login-flip {
+    perspective: 1400px;
+    width: 100%;
+  }
+
+  .wcag-login-flip-inner {
+    position: relative;
+    width: 100%;
+    min-height: 600px;
+    transform-style: preserve-3d;
+    transition: transform 0.65s cubic-bezier(0.4, 0.55, 0.2, 1);
+  }
+
+  .wcag-login-flip-inner.is-flipped {
+    transform: rotateY(180deg);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .wcag-login-flip-inner {
+      transition-duration: 0.01ms;
+    }
+  }
+
+  .wcag-login-face {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
     padding: 32px 28px 30px;
+    box-sizing: border-box;
     border-radius: 20px;
     background: rgba(255, 255, 255, 0.28);
     border: 1px solid rgba(255, 255, 255, 0.55);
@@ -180,6 +460,20 @@
       inset 0 1px 0 rgba(255, 255, 255, 0.65);
     backdrop-filter: blur(22px) saturate(1.35);
     -webkit-backdrop-filter: blur(22px) saturate(1.35);
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+  }
+
+  /* Slight Z separation avoids backface glitches and mirrored text in some browsers (WebKit + backdrop-filter). */
+  .wcag-login-face--front {
+    transform: rotateY(0deg) translateZ(3px);
+  }
+
+  .wcag-login-face--back {
+    transform: rotateY(180deg) translateZ(3px);
+    justify-content: flex-start;
+    gap: 0;
+    overflow-y: auto;
   }
 
   .wcag-login-title {
@@ -237,6 +531,26 @@
     border-color: transparent;
   }
 
+  .wcag-login-textarea {
+    width: 100%;
+    min-height: 100px;
+    padding: 12px 14px;
+    border: 1px solid rgba(25, 25, 27, 0.12);
+    border-radius: 12px;
+    font-size: 1rem;
+    font-family: inherit;
+    background: rgba(255, 255, 255, 0.55);
+    color: var(--fg-1, #19191b);
+    box-sizing: border-box;
+    resize: vertical;
+  }
+
+  .wcag-login-textarea:focus {
+    outline: 2px solid var(--focus-ring, #6257e8);
+    outline-offset: 2px;
+    border-color: transparent;
+  }
+
   .wcag-login-submit {
     margin-top: 22px;
     width: 100%;
@@ -254,5 +568,100 @@
 
   .wcag-login-submit:hover {
     filter: brightness(1.06);
+  }
+
+  .wcag-login-form {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+  }
+
+  .wcag-login-footer-request {
+    margin: auto 0 0;
+    padding-top: 12px;
+    text-align: center;
+  }
+
+  .wcag-login-linklike {
+    margin: 0;
+    padding: 0;
+    border: none;
+    background: none;
+    font: inherit;
+    font-size: 0.9rem;
+    color: var(--focus-ring, #6257e8);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    cursor: pointer;
+  }
+
+  .wcag-login-linklike:hover {
+    color: #423a75;
+  }
+
+  .wcag-login-linklike:focus-visible {
+    outline: 2px solid var(--focus-ring, #6257e8);
+    outline-offset: 3px;
+    border-radius: 4px;
+  }
+
+  .wcag-access-submit {
+    margin-top: 16px;
+  }
+
+  .wcag-access-lead {
+    margin: 0 0 14px;
+    font-size: 0.95rem;
+    color: var(--fg-2, #2e2e2e);
+    line-height: 1.45;
+  }
+
+  .wcag-access-form {
+    display: flex;
+    flex-direction: column;
+    flex: 0 0 auto;
+    gap: 0;
+    width: 100%;
+  }
+
+  .wcag-access-form .wcag-login-label {
+    margin-top: 10px;
+  }
+
+  .wcag-access-form .wcag-login-label:first-of-type {
+    margin-top: 0;
+  }
+
+  .wcag-access-ok {
+    margin: 0 0 12px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: rgba(61, 154, 110, 0.12);
+    color: #1e6b45;
+    font-size: 0.9rem;
+  }
+
+  .wcag-login-back {
+    flex-shrink: 0;
+    margin-top: 20px;
+    width: 100%;
+    padding: 12px 16px;
+    border-radius: 12px;
+    border: 1px solid rgba(25, 25, 27, 0.2);
+    font-family: var(--font-display, 'Bricolage Grotesque', system-ui, sans-serif);
+    font-weight: 600;
+    font-size: 0.95rem;
+    cursor: pointer;
+    background: rgba(255, 255, 255, 0.4);
+    color: var(--fg-1, #19191b);
+  }
+
+  .wcag-login-back:hover {
+    background: rgba(255, 255, 255, 0.55);
+  }
+
+  .wcag-login-back:focus-visible {
+    outline: 2px solid var(--focus-ring, #6257e8);
+    outline-offset: 2px;
   }
 </style>

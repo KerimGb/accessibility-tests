@@ -25,6 +25,11 @@ process.env.ASTRO_NODE_AUTOSTART ??= 'disabled';
 
 const { handler } = await import('./dist/server/entry.mjs');
 
+/**
+ * Let unauthenticated GET / reach Astro (Layout + LoginModal). API-only server.js keeps Express login HTML for /.
+ */
+process.env.DEFER_ROOT_LOGIN_TO_SHELL ??= 'true';
+
 const apiApp = createAccessibilityApp(repoRoot);
 const app = express();
 app.use(apiApp);

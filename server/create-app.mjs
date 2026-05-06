@@ -9,7 +9,7 @@ import { spawn } from 'child_process';
 import { randomBytes } from 'crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
-import { sendRunNotificationEmail, createSmtpTransport } from '../server-email.js';
+import { sendRunNotificationEmail, createSmtpTransport, sendAccessRequestEmail } from '../server-email.js';
 import { REPORTS_BASE } from './paths.js';
 import { dbPool, dbUpsertRun, dbGetRun, dbGetLatestRun } from './db.js';
 import { mergeReportData } from './report-data.js';
@@ -496,6 +496,15 @@ function setAuthCookie(res) {
   );
 }
 
+function clearAuthCookie(res) {
+  const useSecure = AUTH_COOKIE_SAMESITE === 'None' ? true : AUTH_COOKIE_SECURE;
+  const securePart = useSecure ? '; Secure' : '';
+  res.setHeader(
+    'Set-Cookie',
+    `${AUTH_COOKIE_NAME}=; Path=/; HttpOnly; SameSite=${AUTH_COOKIE_SAMESITE}; Max-Age=0${securePart}`
+  );
+}
+
 function loginPageHtml(nextPath = '', errorMessage = '') {
   const safeNext = String(nextPath || '/')
     .replace(/&/g, '&amp;')
@@ -686,6 +695,13 @@ app.post('/auth/login', (req, res) => {
   return res.redirect(nextPath);
 });
 
+app.get('/auth/logout', (req, res) => {
+  if (!AUTH_ENABLED) return res.redirect('/');
+  clearAuthCookie(res);
+  const nextPath = typeof req.query?.next === 'string' ? safeNextAfterLogin(req.query.next) : '/auth/login';
+  return res.redirect(302, nextPath);
+});
+
 app.get('/auth/jira/connect', (req, res) => {
   const cfg = getJiraConfig();
   const domain = String(req.query?.domain || '').trim().toLowerCase();
@@ -763,10 +779,37 @@ app.post('/api/auth/login', (req, res) => {
   return res.json({ ok: true });
 });
 
+app.post('/api/auth/logout', (req, res) => {
+  if (!AUTH_ENABLED) return res.json({ ok: true });
+  clearAuthCookie(res);
+  return res.json({ ok: true });
+});
+
+app.post('/api/access-request', async (req, res) => {
+  const name = String(req.body?.name ?? '').trim();
+  const company = String(req.body?.company ?? '').trim();
+  const email = String(req.body?.email ?? '').trim();
+  const message = String(req.body?.message ?? '').trim();
+  if (!name || !email) {
+    return res.status(400).json({ error: 'Name and email are required.' });
+  }
+  if (!isValidEmail(email)) {
+    return res.status(400).json({ error: 'Enter a valid email address.' });
+  }
+  try {
+    const { emailed } = await sendAccessRequestEmail({ name, company, email, message });
+    return res.json({ ok: true, emailed });
+  } catch (err) {
+    console.error('[access-request]', err?.message || err);
+    return res.status(500).json({ error: 'Could not submit your request. Try again later.' });
+  }
+});
+
 app.use((req, res, next) => {
   if (!AUTH_ENABLED) return next();
   if (req.path === '/robots.txt') return next();
   if (req.path === '/auth/login') return next();
+  if (req.path === '/auth/logout') return next();
   if (req.path.startsWith('/auth/jira/')) return next();
   /** Public GETs: loading shell + static assets (styles/scripts while session cookie is set). */
   if (
@@ -800,8 +843,11 @@ app.use((req, res, next) => {
   }
   if (authed) return next();
 
-  /** Main domain: serve glass login at `/` (URL stays on the site root). */
+  /** Main domain: serve glass login at `/` unless the Node host defers to an Astro shell (web/run-server.mjs). */
   if (req.method === 'GET' && req.path === '/') {
+    if (parseBooleanEnv('DEFER_ROOT_LOGIN_TO_SHELL', false)) {
+      return next();
+    }
     return res.status(200).send(loginPageHtml('/'));
   }
 
