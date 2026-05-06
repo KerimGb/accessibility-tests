@@ -3,6 +3,18 @@
  * Blocking glass sign-in overlay until POST /api/auth/login sets the HttpOnly wcag_access cookie.
  * Coordinates with #wcag-main / #wcag-session-bar in Layout.astro.
  */
+const LOGIN_TILE_IMAGES = Array.from({ length: 10 }, (_, i) => {
+  const n = String(i + 1).padStart(2, '0');
+  return `/assets/login-tiles/tile-${n}.png`;
+});
+const LOGIN_TILE_COL_COUNT = 6;
+const LOGIN_TILE_ROW_COUNT = 8;
+/** One image stack per column; duplicated in markup for seamless scroll. */
+const LOGIN_TILE_COLUMNS = Array.from({ length: LOGIN_TILE_COL_COUNT }, (_, col) =>
+  Array.from({ length: LOGIN_TILE_ROW_COUNT }, (_, row) => {
+    return LOGIN_TILE_IMAGES[(col + row * LOGIN_TILE_COL_COUNT) % LOGIN_TILE_IMAGES.length];
+  }),
+);
 ---
 
 <div
@@ -12,7 +24,33 @@
   role="presentation"
 >
   <div class="wcag-login-scene" aria-hidden="true">
-    <div class="wcag-login-bg-mosaic"></div>
+    <div class="wcag-login-bg-mosaic">
+      <div class="wcag-login-tiles-viewport">
+        <div class="wcag-login-tiles-canvas">
+          {LOGIN_TILE_COLUMNS.map((cells, colIndex) => (
+            <div
+              class:list={[
+                'wcag-login-tiles-col',
+                colIndex % 2 === 0 ? 'wcag-login-tiles-col--up' : 'wcag-login-tiles-col--down',
+              ]}
+            >
+              <div class="wcag-login-tiles-track-col">
+                <div class="wcag-login-tiles-stack">
+                  {cells.map((src) => (
+                    <div class="wcag-login-tiles-cell" style={{ backgroundImage: `url('${src}')` }} />
+                  ))}
+                </div>
+                <div class="wcag-login-tiles-stack">
+                  {cells.map((src) => (
+                    <div class="wcag-login-tiles-cell" style={{ backgroundImage: `url('${src}')` }} />
+                  ))}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
     <div class="wcag-login-grad"></div>
     <div class="wcag-login-vignette"></div>
   </div>
@@ -383,13 +421,98 @@
     position: absolute;
     inset: 0;
     z-index: 0;
-    background:
-      linear-gradient(155deg, rgba(255, 255, 255, 0.2) 0%, transparent 42%),
-      url('/assets/login-app-mosaic.svg') center / cover no-repeat;
-    background-color: #b9b5a9;
-    opacity: 1;
-    /* Multiply was flattening this art to a single warm grey; keep detail readable. */
-    filter: saturate(1.12) contrast(1.14);
+    overflow: hidden;
+    background-color: transparent;
+  }
+
+  .wcag-login-tiles-viewport {
+    position: absolute;
+    inset: -18%;
+    overflow: hidden;
+    background: transparent;
+    --wcag-login-tile-gap: clamp(15px, 2.7vw, 24px);
+  }
+
+  .wcag-login-tiles-canvas {
+    display: flex;
+    align-items: stretch;
+    gap: var(--wcag-login-tile-gap);
+    width: 125%;
+    max-width: none;
+    margin-left: -12.5%;
+    padding: clamp(12px, 1.8vw, 18px);
+    box-sizing: border-box;
+    background: transparent;
+    transform: rotate(-4.75deg) scale(1.62);
+    transform-origin: center center;
+  }
+
+  .wcag-login-tiles-col {
+    flex: 1 1 0;
+    min-width: 0;
+    border-radius: clamp(12px, 1.6vw, 18px);
+    background: transparent;
+  }
+
+  .wcag-login-tiles-track-col {
+    display: flex;
+    flex-direction: column;
+    gap: var(--wcag-login-tile-gap);
+    flex: 0 0 auto;
+    background: transparent;
+    will-change: transform;
+    animation: wcag-login-tiles-marquee-up 105s linear infinite;
+  }
+
+  .wcag-login-tiles-col--down .wcag-login-tiles-track-col {
+    animation-direction: reverse;
+  }
+
+  .wcag-login-tiles-stack {
+    display: flex;
+    flex-direction: column;
+    gap: var(--wcag-login-tile-gap);
+    flex: 0 0 auto;
+    background: transparent;
+  }
+
+  .wcag-login-tiles-cell {
+    aspect-ratio: 16 / 10;
+    width: 100%;
+    flex: 0 0 auto;
+    border-radius: clamp(10px, 1.4vw, 16px);
+    background-color: transparent;
+    background-repeat: no-repeat;
+    background-size: cover;
+    background-position: center top;
+    box-shadow:
+      0 7px 8px #5e5e6424,
+      inset 0 0 0 0px #ffffff61;
+    filter: saturate(1.08) contrast(1.06);
+  }
+
+  @keyframes wcag-login-tiles-marquee-up {
+    from {
+      transform: translate3d(0, 0, 0);
+    }
+    to {
+      transform: translate3d(0, calc(-50% - var(--wcag-login-tile-gap) / 2), 0);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .wcag-login-tiles-track-col {
+      animation: none;
+    }
+    .wcag-login-tiles-col--up .wcag-login-tiles-track-col {
+      transform: translate3d(0, -16%, 0);
+    }
+    .wcag-login-tiles-col--down .wcag-login-tiles-track-col {
+      transform: translate3d(0, -34%, 0);
+    }
+    .wcag-login-tiles-canvas {
+      transform: rotate(-4.25deg) scale(1.55);
+    }
   }
 
   .wcag-login-grad {
