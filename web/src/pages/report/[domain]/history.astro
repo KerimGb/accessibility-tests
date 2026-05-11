@@ -48,10 +48,10 @@ function formatRunId(runId: string): string {
   <div class="app-shell">
     <AppHeader domain={domain} runId={null} active="history" />
     <main class="app-main">
-      <div data-screen-label="Domain history" style="background: var(--us-cream); min-height: calc(100vh - 65px); position: relative; overflow: hidden;">
+      <div data-screen-label="Domain history" style="background: var(--us-cream); min-height: calc(100dvh - 65px); min-height: calc(100vh - 65px); position: relative; overflow: hidden;">
         <div aria-hidden="true" style="position: absolute; top: -140px; right: -100px; width: 480px; height: 480px; border-radius: 50%; background: var(--us-grad-iridescent); opacity: 0.4; filter: blur(50px); animation: drift 22s ease-in-out infinite; pointer-events: none;"></div>
 
-        <div class="container" style="padding: 56px 32px 96px; position: relative;">
+        <div class="container" style="padding: clamp(32px, 5vw, 56px) 0 clamp(56px, 8vw, 96px); position: relative;">
           <div class="history-head">
             <div>
               <span class="eyebrow"><span class="dot"></span>Audit history · /report/{domain}</span>
@@ -83,7 +83,9 @@ function formatRunId(runId: string): string {
                 <h3 style="font-size: 18px;">Score over time</h3>
                 <span class="muted" style="font-size: 13px;">{trendPoints.length} audits</span>
               </div>
+            <div class="history-trend-wrap">
               <TrendChart client:load data={trendPoints} width={1180} height={180} />
+            </div>
             </div>
           )}
 
@@ -121,7 +123,7 @@ function formatRunId(runId: string): string {
             </div>
           ) : (
             <div class="card-flat" style="padding: 0;">
-              <div class="list-row history-row" style="background: var(--us-n-20); font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--fg-3); font-weight: 600;">
+              <div class="list-row history-row history-row--head" style="background: var(--us-n-20); font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--fg-3); font-weight: 600;">
                 <span>Date</span><span>Run ID</span><span>Issues</span><span>Pages</span><span>Score</span><span></span>
               </div>
               {sortedNewestFirst.map((r, i) => {
@@ -190,6 +192,11 @@ function formatRunId(runId: string): string {
     text-decoration: none;
     color: inherit;
   }
+  .history-trend-wrap {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
   .history-row + .history-row {
     border-top: 1px solid var(--border-subtle);
   }
@@ -203,6 +210,14 @@ function formatRunId(runId: string): string {
     .latest-strip {
       grid-template-columns: 1fr;
       text-align: left;
+    }
+    .history-row--head {
+      display: none;
+    }
+    .history-row:not(.history-row--head) {
+      grid-template-columns: 1fr;
+      gap: 8px;
+      align-items: start;
     }
   }
 </style>

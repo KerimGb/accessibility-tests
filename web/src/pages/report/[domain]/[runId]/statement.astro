@@ -66,14 +66,14 @@ function nextYear(s: string): string {
   <div class="app-shell">
     <AppHeader domain={domain} runId={runId} active="statement" />
     <main class="app-main">
-      <div data-screen-label="05 Accessibility statement" style="background: var(--us-cream); min-height: calc(100vh - 65px);">
-        <div class="container-narrow" style="padding: 56px 32px 96px;">
-          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; flex-wrap: wrap; gap: 12px;">
+      <div data-screen-label="05 Accessibility statement" style="background: var(--us-cream); min-height: calc(100dvh - 65px); min-height: calc(100vh - 65px);">
+        <div class="container-narrow statement-page-inner">
+          <div class="statement-toolbar">
             <div style="display: flex; flex-direction: column; gap: 6px;">
               <a class="btn btn-ghost btn-sm" href={`/report/${encodeURIComponent(domain)}/${encodeURIComponent(runId)}/`} style="align-self: flex-start;">← Back to report</a>
               <span class="eyebrow"><span class="dot"></span>Auto-generated · ready to publish</span>
             </div>
-            <div style="display: flex; gap: 8px;">
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
               <a class="btn btn-secondary btn-sm" href={`/report/${encodeURIComponent(domain)}/${encodeURIComponent(runId)}/accessibility-statement.html`}>Open static HTML</a>
               <a class="btn btn-primary btn-sm" href={`/report/${encodeURIComponent(domain)}/${encodeURIComponent(runId)}/accessibility-statement.html`} download>Download HTML</a>
             </div>
@@ -82,7 +82,7 @@ function nextYear(s: string): string {
           <article class="statement-doc">
             <header style="border-bottom: 1px solid var(--border-subtle); padding-bottom: 28px; margin-bottom: 32px;">
               <div class="muted" style="font-size: 13px; margin-bottom: 8px;">Accessibility statement</div>
-              <h1 style="font-size: 44px; margin-bottom: 14px;">{company}</h1>
+              <h1 class="statement-h1">{company}</h1>
               <div style="display: flex; gap: 18px; font-size: 14px; color: var(--fg-2); flex-wrap: wrap;">
                 <span>Last updated <strong>{auditDate}</strong></span>
                 <span>·</span>
@@ -209,7 +209,7 @@ function nextYear(s: string): string {
             </footer>
           </article>
 
-          <div style="margin-top: 32px; display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
+          <div class="statement-cta-row" style="margin-top: 32px; display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
             <a class="btn btn-secondary" href={`/report/${encodeURIComponent(domain)}/${encodeURIComponent(runId)}/`}>← Back to results</a>
             <a class="btn btn-primary" href={`/report/${encodeURIComponent(domain)}/${encodeURIComponent(runId)}/accessibility-developers.html`}>Developer next-steps →</a>
           </div>
@@ -220,6 +220,31 @@ function nextYear(s: string): string {
 </Layout>
 
 <style>
+  .statement-page-inner {
+    padding: clamp(32px, 6vw, 56px) 0 clamp(48px, 8vw, 96px);
+  }
+  .statement-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+  .statement-h1 {
+    font-size: clamp(28px, 5vw, 44px);
+    margin-bottom: 14px;
+  }
+  @media (max-width: 560px) {
+    .statement-toolbar .btn {
+      width: 100%;
+      justify-content: center;
+    }
+    .statement-cta-row .btn {
+      width: 100%;
+      justify-content: center;
+    }
+  }
   .statement-doc {
     background: var(--us-white);
     border-radius: var(--r-lg);
@@ -250,6 +275,12 @@ function nextYear(s: string): string {
     gap: 18px;
     align-items: center;
     margin: 12px 0;
+  }
+  @media (max-width: 480px) {
+    .conformance-row {
+      grid-template-columns: 1fr;
+      justify-items: start;
+    }
   }
   .contact-grid {
     padding: 20px;

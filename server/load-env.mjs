@@ -25,8 +25,20 @@ export function loadWebEnv(repoRoot) {
   }
 }
 
+/**
+ * Vars the host may inject before Node starts (PaaS must win over web/.env dotenv overrides).
+ */
+const ENV_PRESERVE_FROM_HOST = ['PORT', 'NODE_ENV'];
+
 /** Root env + web env (typical for server.js and web/run-server.mjs). */
 export function loadAllAppEnv(repoRoot) {
+  const preserved = {};
+  for (const k of ENV_PRESERVE_FROM_HOST) {
+    if (process.env[k] !== undefined) preserved[k] = process.env[k];
+  }
   loadLocalEnv(repoRoot);
   loadWebEnv(repoRoot);
+  for (const k of ENV_PRESERVE_FROM_HOST) {
+    if (preserved[k] !== undefined) process.env[k] = preserved[k];
+  }
 }

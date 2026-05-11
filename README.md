@@ -146,6 +146,12 @@ node run-tests.js --report --urls="https://example.com,https://example.com/about
 npm run report
 ```
 
+## Deploy on Combell
+
+Shared web hosting with the **Node.js** add-on: follow **[deploy/COMBELL.md](deploy/COMBELL.md)** for the Git pipeline, required **`npm run build` / `npm run serve`** flow, environment variables (HTTPS cookies, Postgres, **`REPORTS_BASE`**), and a **support ticket template** before relying on Playwright on shared hosting.
+
+For day-to-day local UI work without reinstalling Chromium, prefer **`npm run build:web`** (Astro only) or **`npm run build --prefix web`**.
+
 ## Output
 
 - **`reports/accessibility-results.json`** – Raw test results (axe violations + custom checks)

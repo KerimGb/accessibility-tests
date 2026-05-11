@@ -6,10 +6,10 @@ import AppHeader from '../components/AppHeader.astro';
   <div class="app-shell">
     <AppHeader crumb="All audits" />
     <main class="app-main">
-      <div data-screen-label="All audits" style="background: var(--us-cream); min-height: calc(100vh - 65px); position: relative; overflow: hidden;">
+      <div data-screen-label="All audits" style="background: var(--us-cream); min-height: calc(100dvh - 65px); min-height: calc(100vh - 65px); position: relative; overflow: hidden;">
         <div aria-hidden="true" style="position: absolute; top: -180px; right: -120px; width: 520px; height: 520px; border-radius: 50%; background: var(--us-grad-iridescent); opacity: 0.35; filter: blur(60px); animation: drift 24s ease-in-out infinite; pointer-events: none;"></div>
 
-        <div class="container" style="padding: 56px 32px 96px; position: relative;">
+        <div class="container" style="padding: clamp(32px, 5vw, 56px) 0 clamp(48px, 8vw, 96px); position: relative;">
           <div class="audits-head">
             <div>
               <span class="eyebrow"><span class="dot"></span>Audits archive · /audits</span>
@@ -201,5 +201,9 @@ import AppHeader from '../components/AppHeader.astro';
     .audits-head { grid-template-columns: 1fr; }
     .audits-row { grid-template-columns: 1fr; }
     .audits-row.head { display: none; }
+    .audits-row .btn {
+      width: 100%;
+      justify-content: center;
+    }
   }
 </style>

@@ -45,9 +45,15 @@
 
   let slideIdx = $state(0);
   let totalSlides = $state(8);
+  let deckDonutSize = $state(300);
 
   /** @type {HTMLElement | null} */
   let stageEl = null;
+
+  function resizeDeckDonut() {
+    if (typeof window === 'undefined') return;
+    deckDonutSize = Math.min(380, Math.max(200, Math.floor(window.innerWidth - 72)));
+  }
 
   function handleSlideChange(e) {
     const detail = /** @type {CustomEvent} */ (e).detail;
@@ -61,6 +67,9 @@
       stageEl.addEventListener('slidechange', handleSlideChange);
       stageEl.goTo?.(0);
     }
+    resizeDeckDonut();
+    window.addEventListener('resize', resizeDeckDonut);
+    return () => window.removeEventListener('resize', resizeDeckDonut);
   });
 
   onDestroy(() => {
@@ -77,7 +86,7 @@
     <div class="deck-head">
       <div>
         <span class="eyebrow" style="color: rgba(255,255,255,0.6);"><span class="dot"></span>For the client</span>
-        <h2 style="color: var(--us-cream); font-size: 28px; margin-top: 6px;">Sales-ready report · {companyName}</h2>
+        <h2 style="color: var(--us-cream); font-size: clamp(1.15rem, 3.5vw, 28px); margin-top: 6px;">Sales-ready report · {companyName}</h2>
       </div>
       <div class="deck-controls">
         <a class="btn btn-ghost btn-sm deck-nav" href={`/report/${encodeURIComponent(domain)}/${encodeURIComponent(runId)}/`}>← Back to report</a>
@@ -138,7 +147,7 @@
               </div>
             </div>
             <div style="display: flex; justify-content: center;">
-              <ScoreDonut score={scoreClamp} size={380} stroke={32} threshold={80} label="Compliance" />
+              <ScoreDonut score={scoreClamp} size={deckDonutSize} stroke={32} threshold={80} label="Compliance" />
             </div>
           </div>
         </section>
@@ -150,7 +159,7 @@
             <h2 class="slide-h2 wide" style="margin-top: 14px; margin-bottom: 40px;">
               Roughly <em class="hl-peach">1 in 4 visitors</em> hits a real obstacle on your site.
             </h2>
-            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 32px;">
+            <div class="deck-grid-3">
               <div class="plain-card" style="background: var(--us-lilac); color: var(--us-lilac-text);">
                 <div class="plain-big">92%</div>
                 <div class="plain-label">of screen-reader users</div>
@@ -176,7 +185,7 @@
           <div class="slide-pad" style="display: flex; flex-direction: column; justify-content: center;">
             <span class="eyebrow"><span class="dot"></span>The four pillars · WCAG POUR</span>
             <h2 class="slide-h2" style="margin-top: 14px; margin-bottom: 40px;">How you score on each pillar</h2>
-            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px;">
+            <div class="deck-grid-4">
               {#each principles as p (p.key)}
                 {@const total = p.errors + p.warnings + p.passed}
                 {@const pct = total > 0 ? Math.round((p.passed / total) * 100) : 0}
@@ -239,7 +248,7 @@
           <div class="slide-pad" style="position: relative; display: flex; flex-direction: column; justify-content: center;">
             <span class="eyebrow" style="color: rgba(255,255,255,0.6);"><span class="dot"></span>What's next</span>
             <h2 class="slide-h2 next-h2">A two-week sprint, eight tickets, one big leap forward.</h2>
-            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; max-width: 1000px;">
+            <div class="deck-grid-3 deck-grid-3--tight">
               <div class="next-card"><div class="next-num">01</div><div class="next-title">This week</div><div class="next-body">Sign off the sprint and assign tickets.</div></div>
               <div class="next-card"><div class="next-num">02</div><div class="next-title">Weeks 1–2</div><div class="next-body">Frontend ships fixes, design audits color tokens.</div></div>
               <div class="next-card"><div class="next-num">03</div><div class="next-title">Week 3</div><div class="next-body">Re-audit and publish the updated statement.</div></div>
@@ -276,8 +285,9 @@
 <style>
   .deck-shell {
     background: var(--us-ink);
+    min-height: calc(100dvh - 65px);
     min-height: calc(100vh - 65px);
-    padding: 32px 32px 80px;
+    padding: clamp(16px, 4vw, 32px) clamp(16px, 4vw, 32px) max(80px, env(safe-area-inset-bottom, 0px));
   }
   .deck-frame {
     max-width: 1280px;
@@ -323,6 +333,8 @@
     box-shadow: var(--shadow-pop);
     background: var(--us-cream);
     aspect-ratio: 16 / 9;
+    width: 100%;
+    max-height: min(72dvh, 820px);
   }
   .slide {
     width: 100%;
@@ -342,9 +354,11 @@
     background: var(--us-white);
   }
   .slide-pad {
-    padding: 96px;
+    padding: clamp(32px, 6vw, 96px);
     height: 100%;
     box-sizing: border-box;
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
   }
   .blob {
     position: absolute;
@@ -397,7 +411,7 @@
   }
   .cover-title {
     color: var(--us-cream);
-    font-size: 96px;
+    font-size: clamp(36px, 8vw, 96px);
     line-height: 0.95;
     margin-top: 18px;
     margin-bottom: 20px;
@@ -410,7 +424,7 @@
     color: transparent;
   }
   .cover-lead {
-    font-size: 24px;
+    font-size: clamp(16px, 2.4vw, 24px);
     opacity: 0.75;
     max-width: 760px;
     line-height: 1.4;
@@ -424,11 +438,11 @@
   .score-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 80px;
+    gap: clamp(32px, 6vw, 80px);
     align-items: center;
   }
   .score-h2 {
-    font-size: 80px;
+    font-size: clamp(36px, 6vw, 80px);
     margin-top: 14px;
     margin-bottom: 22px;
     line-height: 0.98;
@@ -440,13 +454,13 @@
     color: transparent;
   }
   .score-p {
-    font-size: 22px;
+    font-size: clamp(16px, 2.2vw, 22px);
     color: var(--fg-2);
     line-height: 1.5;
     margin-bottom: 26px;
   }
   .slide-h2 {
-    font-size: 64px;
+    font-size: clamp(32px, 5.5vw, 64px);
   }
   .slide-h2.wide {
     max-width: 1100px;
@@ -456,6 +470,20 @@
     background: var(--us-peach);
     padding: 0 12px;
     border-radius: 12px;
+  }
+  .deck-grid-3 {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: clamp(16px, 3vw, 32px);
+  }
+  .deck-grid-3--tight {
+    gap: clamp(14px, 3vw, 24px);
+    max-width: 1000px;
+  }
+  .deck-grid-4 {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: clamp(14px, 2.5vw, 20px);
   }
   .plain-card {
     padding: 28px;
@@ -610,5 +638,58 @@
     color: var(--fg-2);
     max-width: 780px;
     line-height: 1.5;
+  }
+
+  @media (max-width: 900px) {
+    .score-grid,
+    .trend-grid {
+      grid-template-columns: 1fr;
+      gap: 28px;
+    }
+    .fix-card {
+      grid-template-columns: 1fr;
+      gap: 16px;
+      text-align: left;
+    }
+    .fix-card .tag {
+      justify-self: start;
+    }
+  }
+
+  @media (max-width: 720px) {
+    .deck-stage-wrap {
+      aspect-ratio: 3 / 4;
+      max-height: min(85dvh, 920px);
+    }
+    .deck-grid-3,
+    .deck-grid-4 {
+      grid-template-columns: 1fr;
+    }
+    .cover-foot {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 10px;
+    }
+    .next-h2 {
+      font-size: clamp(32px, 7vw, 56px);
+    }
+    .closing-h2 {
+      font-size: clamp(36px, 8vw, 72px);
+    }
+    .trend-card {
+      padding: clamp(16px, 4vw, 32px);
+    }
+    .trend-p {
+      font-size: clamp(16px, 2.5vw, 22px);
+    }
+    .principle-card {
+      min-height: 0;
+    }
+    .plain-card {
+      min-height: 0;
+    }
+    .plain-big {
+      font-size: clamp(44px, 10vw, 72px);
+    }
   }
 </style>

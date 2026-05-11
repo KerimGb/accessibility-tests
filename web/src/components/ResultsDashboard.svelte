@@ -478,7 +478,7 @@
           {/each}
         </div>
       {:else if tab === 'principles'}
-        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
+        <div class="dash-principles-grid">
           {#each principles as p (p.key)}
             {@const total = p.errors + p.warnings + p.passed}
             {@const pct = total > 0 ? Math.round((p.passed / total) * 100) : 0}
@@ -559,7 +559,7 @@
           {#if rulesTable.length === 0}
             <p class="muted" style="font-size: 14px;">Nothing fired this round — well done.</p>
           {:else}
-            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px;">
+            <div class="dash-rules-grid">
               {#each rulesTable as r (r.id)}
                 <div style="padding: 10px 14px; border: 1px solid var(--border-subtle); border-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
                   <div>
@@ -611,7 +611,7 @@
           </div>
           <h2 style="font-size: 28px; margin-bottom: 14px;">{selected.rule}</h2>
 
-          <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px;">
+          <div class="dash-drawer-stats">
             <div class="mini-stat">
               <div class="mini-stat-label">Severity</div>
               <div class="mini-stat-value">{severityFor(selected)}</div>
@@ -746,7 +746,8 @@
     position: absolute;
     top: 30px;
     right: 0;
-    width: 320px;
+    width: min(320px, calc(100vw - 24px));
+    max-width: calc(100vw - 24px);
     background: var(--us-cream);
     color: var(--fg-1);
     border-radius: 12px;
@@ -758,7 +759,7 @@
   }
   .hero-title {
     color: var(--us-cream);
-    font-size: 38px;
+    font-size: clamp(26px, 6vw, 38px);
     margin-top: 10px;
     margin-bottom: 6px;
   }
@@ -857,12 +858,42 @@
   .overview-grid.detailed {
     grid-template-columns: 1fr;
   }
+  .dash-principles-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+  }
+  .dash-rules-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+  .dash-drawer-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin-bottom: 20px;
+  }
   @media (max-width: 1024px) {
     .stat-strip,
     .stat-strip.compact,
     .stat-strip.detailed,
     .overview-grid {
       grid-template-columns: 1fr 1fr;
+    }
+  }
+  @media (max-width: 600px) {
+    .stat-strip,
+    .stat-strip.compact,
+    .stat-strip.detailed {
+      grid-template-columns: 1fr;
+    }
+    .dash-principles-grid,
+    .dash-rules-grid {
+      grid-template-columns: 1fr;
+    }
+    .dash-drawer-stats {
+      grid-template-columns: repeat(2, 1fr);
     }
   }
   .filter-chip {
@@ -923,6 +954,33 @@
     .footer-cta {
       grid-template-columns: 1fr;
     }
+    .footer-cta .btn {
+      width: 100%;
+    }
+    .issue-row,
+    .issue-row.compact {
+      grid-template-columns: 1fr;
+      gap: 10px;
+      align-items: start;
+    }
+    .disability-row {
+      grid-template-columns: 1fr;
+      gap: 12px;
+      padding: 16px 18px;
+    }
+    .disability-icon {
+      width: 48px;
+      height: 48px;
+      font-size: 20px;
+    }
+    .pages-row {
+      grid-template-columns: 1fr;
+      gap: 8px;
+      align-items: start;
+    }
+    :global(.card-flat) > .pages-row:first-of-type {
+      display: none;
+    }
   }
   .principle-icon {
     width: 56px;
@@ -966,23 +1024,37 @@
     display: flex;
     justify-content: flex-end;
   }
+  @media (max-width: 540px) {
+    .drawer-backdrop {
+      justify-content: stretch;
+    }
+  }
   .drawer {
-    width: 640px;
-    max-width: 95vw;
+    width: min(640px, 100%);
+    max-width: 100%;
+    height: 100dvh;
     height: 100vh;
     background: var(--us-cream);
     overflow-y: auto;
     box-shadow: var(--shadow-pop);
   }
   .drawer-head {
-    padding: 24px 32px;
+    padding: 20px calc(16px + env(safe-area-inset-right, 0px)) 20px calc(16px + env(safe-area-inset-left, 0px));
     border-bottom: 1px solid var(--border-subtle);
     display: flex;
     justify-content: space-between;
     align-items: center;
   }
   .drawer-body {
-    padding: 24px 32px;
+    padding: 20px calc(16px + env(safe-area-inset-right, 0px)) 24px calc(16px + env(safe-area-inset-left, 0px));
+  }
+  @media (min-width: 541px) {
+    .drawer-head {
+      padding: 24px calc(32px + env(safe-area-inset-right, 0px)) 24px calc(32px + env(safe-area-inset-left, 0px));
+    }
+    .drawer-body {
+      padding: 24px calc(32px + env(safe-area-inset-right, 0px)) 32px calc(32px + env(safe-area-inset-left, 0px));
+    }
   }
   .drawer-h4 {
     font-size: 13px;

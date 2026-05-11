@@ -201,11 +201,13 @@
 
 <style>
   .loading-shell {
+    min-height: calc(100dvh - 65px);
     min-height: calc(100vh - 65px);
     position: relative;
     background: var(--us-cream);
     color: var(--fg-1);
     overflow: hidden;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
   .orb {
     position: absolute;
@@ -245,16 +247,33 @@
     position: relative;
     max-width: 1280px;
     margin: 0 auto;
-    padding: 60px 32px 40px;
+    padding: clamp(28px, 6vw, 60px) clamp(16px, 4vw, 32px) clamp(100px, 14vw, 120px);
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 60px;
+    gap: clamp(28px, 5vw, 60px);
     align-items: center;
+    min-height: calc(100dvh - 65px);
     min-height: calc(100vh - 65px);
   }
   @media (max-width: 900px) {
     .loading-grid {
       grid-template-columns: 1fr;
+      gap: 32px;
+    }
+  }
+  @media (max-width: 520px) {
+    .loading-grid {
+      padding-bottom: 120px;
+    }
+    .loading-lead {
+      margin-bottom: 24px;
+    }
+    .progress-pct {
+      font-size: 24px;
+    }
+    .live-log {
+      font-size: 11.5px;
+      padding: 14px;
     }
   }
   .loading-title {
@@ -340,10 +359,21 @@
   }
   .holo-stage {
     position: relative;
-    height: 560px;
+    height: clamp(260px, 55vw, 560px);
+    max-width: 100%;
     display: flex;
     align-items: center;
     justify-content: center;
+  }
+  @media (max-width: 520px) {
+    .holo-stage {
+      height: clamp(220px, 58vmin, 340px);
+      transform: scale(0.82);
+      transform-origin: center center;
+    }
+    .ring-1 {
+      width: min(520px, 100%) !important;
+    }
   }
   .halo {
     position: absolute;
@@ -407,11 +437,12 @@
   }
   .loading-footer {
     position: absolute;
-    bottom: 24px;
+    bottom: max(16px, env(safe-area-inset-bottom, 0px));
     left: 0;
     right: 0;
+    padding: 0 16px;
     text-align: center;
-    font-size: 13px;
+    font-size: clamp(11px, 2.8vw, 13px);
     color: var(--fg-3);
   }
   @keyframes ring-spin {

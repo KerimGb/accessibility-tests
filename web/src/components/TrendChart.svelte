@@ -21,7 +21,13 @@
   );
 </script>
 
-<svg {width} {height} viewBox="0 0 {width} {height}">
+<svg
+  viewBox="0 0 {width} {height}"
+  preserveAspectRatio="xMidYMid meet"
+  class="trend-chart-svg"
+  role="img"
+  aria-hidden="true"
+>
   <defs>
     <linearGradient id="trend-fill" x1="0" x2="0" y1="0" y2="1">
       <stop offset="0%" stop-color="#BDB4FF" stop-opacity="0.5" />
@@ -54,3 +60,12 @@
     {/if}
   {/if}
 </svg>
+
+<style>
+  .trend-chart-svg {
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+    display: block;
+  }
+</style>

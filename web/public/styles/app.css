@@ -12,6 +12,7 @@ html, body {
   font-family: var(--font-body);
   font-weight: 300;
   min-height: 100vh;
+  min-height: 100dvh;
 }
 
 #root { min-height: 100vh; }
@@ -35,7 +36,7 @@ html, body {
 .app-header-inner {
   max-width: 1440px;
   margin: 0 auto;
-  padding: 14px 32px;
+  padding: 14px calc(32px + env(safe-area-inset-right, 0px)) 14px calc(32px + env(safe-area-inset-left, 0px));
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -84,6 +85,13 @@ html, body {
   gap: 6px;
   font-size: 13px;
   color: var(--fg-3);
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  flex-wrap: nowrap;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
 }
 .nav-crumbs .step {
   padding: 6px 10px;
@@ -103,12 +111,12 @@ html, body {
 .container {
   max-width: 1280px;
   margin: 0 auto;
-  padding: 0 32px;
+  padding: 0 calc(32px + env(safe-area-inset-right, 0px)) 0 calc(32px + env(safe-area-inset-left, 0px));
 }
 .container-narrow {
   max-width: 880px;
   margin: 0 auto;
-  padding: 0 32px;
+  padding: 0 calc(32px + env(safe-area-inset-right, 0px)) 0 calc(32px + env(safe-area-inset-left, 0px));
 }
 
 .eyebrow {
@@ -447,4 +455,53 @@ html, body {
   height: 100%;
   border-radius: var(--r-pill);
   transition: width .8s cubic-bezier(.5,0,.2,1);
+}
+
+.app-header-chrome {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+/* ─────  Responsive / small screens  ──── */
+@media (max-width: 720px) {
+  .app-header-inner {
+    padding: 12px calc(16px + env(safe-area-inset-right, 0px)) 12px calc(16px + env(safe-area-inset-left, 0px));
+    flex-wrap: wrap;
+    row-gap: 10px;
+  }
+  .brand {
+    font-size: 16px;
+    min-width: 0;
+  }
+  .brand small {
+    display: none;
+  }
+  .app-header-chrome .muted {
+    display: none;
+  }
+  .container,
+  .container-narrow {
+    padding: 0 calc(16px + env(safe-area-inset-right, 0px)) 0 calc(16px + env(safe-area-inset-left, 0px));
+  }
+}
+
+.nav-host-hint {
+  display: none;
+}
+@media (min-width: 520px) {
+  .nav-host-hint {
+    display: inline;
+  }
+}
+
+@media (max-width: 480px) {
+  .btn {
+    white-space: normal;
+    text-align: center;
+  }
+  .stat-value {
+    font-size: clamp(28px, 12vw, 40px);
+  }
 }
